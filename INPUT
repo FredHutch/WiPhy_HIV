@@ -1,0 +1,116 @@
+The input files to the program "hiv_sim" (or "hiv_sim_gui") must be in the format 
+<variable1> <value1>
+<variable2> <value2>
+...
+With just one variable per line.  Some variables are integers while others use floating point foramt.
+There is a sample input file in the Linux directory (hsv_sim.in).
+
+The variables available for setting can be grouped into those for simulation control, graphical output,
+fitting and fixed variables.  The variable names, sample values and descriptions are shown below in
+groups identified by the above categories:
+
+
+Simulation Control Variables
+===========================
+Variable,Sample,value,Description
+Runs,1,How many runs (patients)
+refresh,0.5,Interval in days for updating the graphical outputs
+print,0.5,Interval in days for updating screen messages
+sampleInterval,0.5,Interval in days for updating data file(s)
+tF,365.,How many days to run (post-initialzation phase)
+dt,0.01,Time-step for tau-leap algorithm
+verbose,0,Verbosity of diagnostic messages when running (optional)
+writeOn,0,Enable data file writing (also set w/ -w option) (optional)
+
+Fitting Control
+===============
+AIC_k,6,k used with AIC scoring (number of fit parameters in a given model)
+weight1,1,criteria 1 weighting (peak)
+weight2,1,criteria 2 weighting (peak time)
+weight3,1,criteria 3 weighting (nadir drop)
+weight4,1,criteria 4 weighting (nadir drop time)
+weight5,1,criteria 5 weighting (avg set point)
+weight6,1,criteria 6 weighting (set point variance)
+weight7,1,criteria 7 weighting (divergence)
+weight8,1,criteria 8 weighting (diversity)
+weight9,1,criteria 9 weighting (defective fraction)
+div_sample_interval,10,how often to sample for diversity
+div_sample_size,10000,size of sample for sequences (for diversity) in ul
+score_sample,10,total number of diversity sample
+
+Fixed Parameters
+=========================
+a0,2,initial number of actively infected cells
+aL1,0.015,birth rate for latently infected cells (type 1)
+aL2,0.002,birth rate for latently infected cells (type 1)
+art_dur_mean,1696.6,average time on ART (for reservoir decay studies)
+art_dur_std,1539.2,stddev of time on ART
+art_start_mean,43.4,avg day ART is started
+art_start_std,24.5,stddev for ART start day
+aS0,0.022e3,birth rate of susceptible cells
+Bt_k,5,k for weibull dist on infectivity
+Bt_max,7.782e-04,max infectivity (used for founder)
+Bt_mean,3.673e-04,mean infectivity (for distribution)
+cd8_0,5,starting CD8 pop (strain-specific)
+cd8_ic50_0,4.49736,IC50 for capping CD8s (CD8s per ul)
+cd8_k,0,k for CD8 weibull distribution
+cd8_mean,5,mean for CD8 distribution
+dA,1,death rate for actively infected cells
+dA_ic50_0,0,IC50 for ramping immunity based on strain's infected cells
+dA_scale,3,scale factor for ramping immunity based on strain's infected cells
+delta,0.05,death rate for CD8s
+dImmun,7.297258e-05,killing rate for non-strain-specific CD8s
+dImmun_IC50_0,5,IC50 for growing CD8 population (cells per ul)
+dImmun_s,0.00005,killing rate for strain-specific CD8s
+dna_for_res,200,uL to draw when gathering cells for latent reservoir
+dS,0.022,death rate for susceptible cells
+eclipse,0,period before infected cell becomes productive
+gam,23,viral clearance rate
+immun_model,1,expicit immune model selection flag
+junk,0.931,fraction of virus that will be defectively integrated
+junk_bins,1,time based defective virus bins (for decay studies)
+junk_days,180,time width of junk_bins
+kappa,1.5,scale factor for CD8 damping
+kill_junk,1,flag to have CD8s kill cells harboring defective (junk) virus
+lifespan_decay,0,used
+lump_nonviable,1,flag to combine all non-viable virus into common "bucket"
+mu0,2e-5,probability of a mutation (SNP)
+pi,2e3,viral production per cell per day
+pi_mult,0.838549,combo beta*pi
+res_days,180
+res_factor,1,used by reservoir models
+res_model,0,special reservoir models
+tau1,1e-2,latent cell type 1 latency rate
+tau2,1e-4,latent cell type 2 latency rate
+tbirth0,0.005,birth rate for CD8s
+theta,0.5,growth rate of CD8s (during antigenic response)
+thL1,0.05,death rate for latently infected cells (type 1)
+thL2,5.2e-4,death rate for latently infected cells (type 2)
+use_cd8s,1,flag to include CD8s in the model
+use_dBeta,1,flag to base infectivity on change from the strain's parent
+use_weibull,1,flag for weibull distributions
+vol,1000,simulated volumn in uL
+xi1,0.08,latent cell type 1 activation rate
+xi2,3e-4,latent cell type 2 activation rate
+
+Graphical control Parameters
+=========================
+AutoSnapshot,0,Enables screen shots a interval specified
+SnapshotInterval,1,Screen shot interval in days
+plot_span,50,width of time history plot in days
+plotVt,1,enables time history plotting of strain associated virus
+plotAct,1,enables time history plotting of strain associated cells
+plotCD8s,1,enables time history plotting of CD8 T cells
+show_params,0,option to display parameter values in a panel
+plotTopStrains,0,option to trace top strains at any point in time
+followTopStrains,1,option to follow top strains from when they "rank"
+plotFirstStrains,0,option to trace strains after exceeding infected cell threshold
+maxTopStrains,5,number of strains to follow/display
+max_cd8s,1000,highest number of CD8s for plotting (y-axis limit)
+max_act,50000,highest number of infected cells for plotting (y-axis limit)
+max_log_v_value,8,highest log viral load in 1ml (y-axis max)
+min_log_v_value,0,lowest log viral load in 1ml (y-axis min)
+max_log_a_value,5,highest log inf cell count in 1ml (y-axis max)
+min_log_a_value,0,lowest log inf cell count in 1ml (y-axis min)
+maxHammingDist,20,highest Hamming dist to founder for graphing colors
+deltaHammingDist,2,granularity of Hamming dist to founder for graphing colors

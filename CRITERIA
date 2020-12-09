@@ -1,0 +1,25 @@
+The criteria file is used to supply study data on HIV.  The categories used are
+listed below.  An example criteria file, hiv_sim.crit, is provided in the Linux directory and shown here.
+
+6.68 0.77
+12.46 11.58
+2.38 0.59
+26.87 77.68
+4.44 0.88
+0.14 0.04
+17.56 52.97
+0.172 0.0013
+0.9264 0.0025
+
+The file contains 9 sets of statistics.  Each has a mean value and a variance
+for the statistic (space delineated). The sets are
+
+1. Log VL at Peak
+2. Time of Peak VL
+3. Log VL drop from Peak to Nadir
+4. Time of Nadir Drop
+5. Avg Set Point Log VL
+6. Set Point Log VL Variance
+7. Strain Divergence from Founder
+8. Strain pairwise diversity
+9. Fraction of defective integrations

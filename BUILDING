@@ -1,0 +1,22 @@
+   The simplest way to compile the required objects and executable is to do the following:
+
+  1. "cd" to the "Linux" directory containing the package's source code and type
+
+  2. If you wish to build the GUI version (hiv_sim_gui) you must set GTKGLEXT environment variable to 
+     location of gtkglext installation and the PANGOX variable to the directory containing those libraries.
+     Alternatively, you can clone the GIT repository using the command below and set the 
+     environment variable to the extra_libs directory contained in it. 
+
+     git clone https://github.com/FredHutch/HSV_models
+
+  3. Load Mesa module (if UBUNTU) - "ml Mesa"
+
+        Depending on your UBUNTU version other modules may also be required including:
+        GSL,GLib,GTK+ (2.x),libGLU and Pango (version with pangox)
+	This is most easily done using module load commands such as 
+	those in the sample setup_env.sh script in the Linux directory.
+	You must change the paths to the various directories and source the file.
+
+  4. Type `make' to compile the hsv_sim and hiv_sim_gui (if Linux) executable.
+
+Note: This early version of the C++ program uses GTK+ version 2.x and has not been ported to GTK+ 3.0.

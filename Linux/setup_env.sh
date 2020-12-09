@@ -1,0 +1,10 @@
+ml GSL
+ml Mesa
+ml libGLU
+ml GLib
+ml Pango
+ml GTK+/2.24.32-foss-2019b
+ml cairo
+export GTKGLEXT="/home/dswan/HSV_models/extra_libs"
+export PANGOX=$GTKGLEXT
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GTKGLEXT
