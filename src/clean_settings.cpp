@@ -46,7 +46,7 @@ settings::settings(void)
 
     dA  = 1.0;
     dS  = 0.02;
-    dI  = 1;
+
     dActivated  = 0.183;// net clearance of activated CD4s based on growth-death
 			// Half-life of activated CD4s = 3 days (DeBoer, 2003)
 
@@ -241,9 +241,6 @@ settings::settings(void)
     y1_ticks = 8;
     y2_ticks = 6;
     y3_ticks = 5;
-
-    max_r0 = 20;
-    min_r0 = 0; 
 
     NextRefresh = 0;
     crit_start = 0;

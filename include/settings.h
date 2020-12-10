@@ -119,7 +119,6 @@ class settings {
 	double xi2 ;		//# activation rate L2 to A
 
 	double dS ;		//# death rate of suseceptible cells
-	double dI ;		//# death rate of infected cells
 	double dActivated ;	//# death rate of activated/non-infected cells
 
 	double gam;		//# virus clearance rate
@@ -402,8 +401,6 @@ class settings {
    	int threeCompartments;
 #endif
 
-	double max_r0;
-	double min_r0;
  	long int max_vl;
  	int max_cd8s;
  	int max_act;

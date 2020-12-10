@@ -2307,13 +2307,40 @@ void read_input_file(char *inp_file, settings *params)
     CHECK_FOR_INT("age_bins",age_bins);
     CHECK_FOR_INT("strain_bins",strain_bins);
     CHECK_FOR_REAL("sampleInterval",sampleInterval);
+    CHECK_FOR_REAL("crit_start",crit_start);
+
+    CHECK_FOR_INT("max_strains",max_strains);
+    CHECK_FOR_INT("maxTopStrains",maxTopStrains);
+    CHECK_FOR_INT("cellThreshold",cellThreshold);
+    CHECK_FOR_INT("CD8_limit",CD8_limit);
+    CHECK_FOR_INT("followTopStrains",followTopStrains);
+    CHECK_FOR_INT("plotTopStrains",plotTopStrains);
+    CHECK_FOR_INT("plotFirstStrains",plotFirstStrains);
+
+    CHECK_FOR_REAL("seq_length",seq_length);
+    CHECK_FOR_REAL("div_sample_interval",div_sample_interval);
+    CHECK_FOR_INT("div_sample_size",div_sample_size);
+    CHECK_FOR_INT("score_sample",score_sample);
+    CHECK_FOR_INT("seq_sample_type",seq_sample_type);
+    CHECK_FOR_INT("AIC_k",AIC_k);
+
+    // used to decay latent cells when scoring fossil record
+    CHECK_FOR_REAL("art_start_mean",art_start_mean);
+    CHECK_FOR_REAL("art_start_std",art_start_std);
+    CHECK_FOR_REAL("art_dur_mean",art_dur_mean);
+    CHECK_FOR_REAL("art_dur_std",art_dur_std);
+
+    if (params->max_log_v_value == 0 && params->max_vl > 0)
+	params->max_log_v_value=(double)((int)(log10((double)params->max_vl)+0.5));
+
+    if (params->junk_bins > MAX_JUNK_BINS)
+	params->junk_bins = MAX_JUNK_BINS;
+
+#ifdef GUI_ENABLED
     CHECK_FOR_INT("plotVt",plotVt);
     CHECK_FOR_INT("plotAct",plotAct);
     CHECK_FOR_INT("show_params",show_params);
     CHECK_FOR_INT("plotCD8s",plotCD8s);
-    CHECK_FOR_INT("plotTopStrains",plotTopStrains);
-    CHECK_FOR_INT("followTopStrains",followTopStrains);
-    CHECK_FOR_INT("plotFirstStrains",plotFirstStrains);
 
     CHECK_FOR_INT("colorByHamming",colorByHamming);
     CHECK_FOR_INT("maxHammingDist",maxHammingDist);
@@ -2338,43 +2365,15 @@ void read_input_file(char *inp_file, settings *params)
     CHECK_FOR_INT("min_log_cd8_value",min_log_cd8_value);
     CHECK_FOR_INT("max_cd8s",max_cd8s);
 
-    CHECK_FOR_INT("CD8_limit",CD8_limit);
     CHECK_FOR_INT("max_act",max_act);
     CHECK_FOR_INT("x_ticks",x_ticks);
     CHECK_FOR_INT("y1_ticks",y1_ticks);
     CHECK_FOR_INT("y2_ticks",y2_ticks);
     CHECK_FOR_INT("y3_ticks",y3_ticks);
-    CHECK_FOR_REAL("max_r0",max_r0);
-    CHECK_FOR_REAL("min_r0",min_r0);
-    CHECK_FOR_REAL("crit_start",crit_start);
 
-    CHECK_FOR_INT("max_strains",max_strains);
-    CHECK_FOR_INT("maxTopStrains",maxTopStrains);
-    CHECK_FOR_INT("cellThreshold",cellThreshold);
-
-    CHECK_FOR_REAL("seq_length",seq_length);
-    CHECK_FOR_REAL("div_sample_interval",div_sample_interval);
-    CHECK_FOR_INT("div_sample_size",div_sample_size);
-    CHECK_FOR_INT("score_sample",score_sample);
-    CHECK_FOR_INT("seq_sample_type",seq_sample_type);
-    CHECK_FOR_INT("AIC_k",AIC_k);
-
-    // used to decay latent cells when scoring fossil record
-    CHECK_FOR_REAL("art_start_mean",art_start_mean);
-    CHECK_FOR_REAL("art_start_std",art_start_std);
-    CHECK_FOR_REAL("art_dur_mean",art_dur_mean);
-    CHECK_FOR_REAL("art_dur_std",art_dur_std);
-
-#ifdef GUI_ENABLED
     if (params->max_strains > MAX_RAINBOW_COLORS)
 	params->max_strains = MAX_RAINBOW_COLORS;
 #endif
-
-    if (params->max_log_v_value == 0 && params->max_vl > 0)
-	params->max_log_v_value=(double)((int)(log10((double)params->max_vl)+0.5));
-
-    if (params->junk_bins > MAX_JUNK_BINS)
-	params->junk_bins = MAX_JUNK_BINS;
 }
 
 void read_fasta_file(char *fasta_file, settings *params)
