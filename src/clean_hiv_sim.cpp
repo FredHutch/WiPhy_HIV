@@ -3704,6 +3704,8 @@ int main (int argc, char *argv[])
 {
 	int opt;
 
+/** Program expects criteria in file hiv_sim.crit (or use -c <fname> option) and parameters from hiv_sim.in (or use -f <fname> option) **/
+        char def_file[] = "hiv_sim.in";
 	char criteria_file[] = "hiv_sim.crit";
 	char *crit_file;
 	crit_file = &criteria_file[0];
@@ -3740,6 +3742,7 @@ int main (int argc, char *argv[])
         unsigned long int seed;
 
 	settings params;
+        params.inp_file = &def_file[0];
 
 	/* create a random number generator */
 	gsl_rng_env_setup();
