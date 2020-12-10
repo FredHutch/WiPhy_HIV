@@ -1,0 +1,61 @@
+The programs "hiv_sim" and "hiv_sim_gui" are built using "make" in the Linux subdirectory.  For building requirements, 
+see the file BUILDING.  When running you may need to load the Mesa module and put "lib" directory of
+the directory you set in the GTKGLEXT environment variable (see BUILDING) in the front of the path
+specified by the LD_LIBRARY_PATH environment variable (see sample export command below).
+
+    export LD_LIBRARY_PATH="$GTKGLEXT/lib:$LD_LIBRARY_PATH"
+
+The program requires an "input" file (hiv_sim.in by default) and takes an optional "criteria" file (hiv_sim.crit by default).
+The input file contains input variable names and values placing one per line.  Names may appear multiple times,
+but only the last value will be used.  If a variable is not recognized, it is ignored.  Blank lines
+and comments are not allowed in this version.  
+
+Input variable details are provided in the file INPUTS.  
+
+The criteria file is used to supply viral and phylogenetic HIV data to match against.
+The categories used are detailed in the file CRITERIA.
+
+Finally, the program can be used to generate several different output files.  The most basic 
+contains time history date for overall viral load.  Other files can be used to output other 
+summary statistics or statistics by spatial region (files are specified using the -w option 
+with a bit-wise mask value). There are several advanced options not discussed here as 
+illustrated by the usage output below. 
+
+
+Usage: ./hiv_sim [-h][-l][-f <input_file>][-c <crit file>][-e <entropy file>][-p <pat>][-q <seq file>][-r][-s <seed>][-v][-w <write_mask>]
+	-h = this help
+	-f = optional input file
+	-a = optional follow-on input file (at Input_refresh)
+	-c = optional criteria file
+	-e = optional entropy file for fitness inheritance (requires -q)
+		Format: target mean and variance values for...
+			log peak viral load
+			time to peak viral load
+			log peak-nadir drop in viral load
+			time to nadir viral load
+			log viral load set point
+			log variance from viral load set point
+		(set point taken as measure 10 days after nadir)
+		(set point variance measured at 10 day intervals)
+	-l = viral loads in as log values (for -z)
+	-p <patient>= viral loads in as log values (for -z)
+	-y = optional sequence sampling schedule file
+	-z = optional target viral load file
+		currently it must contain N patients each with M time then Vt values for scored fit
+		Format:
+			<N>
+			<M>
+			t1
+			...
+			t<m>
+		t1
+			...
+		t<m>
+	-q <seq FASTA>= FASTA file with initial sequence (for a/c/g/t ratios)
+	-r = random number seed truely random
+	-s <seed> = random number seed for repeating run (unsigned)
+	-w <write_mask> = which output (csv) files to generate (Bit-mask)
+		1= main compartment counts vs time
+		2= strains and their cell counts vs time
+		4= strain lineage information (birth, parent, etc.)
+		8= top 10 strain ids and viral loads
