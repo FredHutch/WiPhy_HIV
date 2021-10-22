@@ -48,9 +48,10 @@ art_dur_std,1539.2,stddev of time on ART
 art_start_mean,43.4,avg day ART is started
 art_start_std,24.5,stddev for ART start day
 aS0,0.022e3,birth rate of susceptible cells
-Bt_k,5,k for weibull dist on infectivity
+Bt_k,1,k for weibull k on infectivity dist (1 = exponential fitness)
 Bt_max,7.782e-04,max infectivity (used for founder)
-Bt_mean,3.673e-04,mean infectivity (for distribution)
+Bt_mean,3.673e-04,mean infectivity (for non-parental fitness distribution - use_dBeta = 0)
+Bt_sd_factor,0,stddev of infectivity (forces normally dist inheritance)
 cd8_0,5,starting CD8 pop (strain-specific)
 cd8_ic50_0,4.49736,IC50 for capping CD8s (CD8s per ul)
 cd8_k,0,k for CD8 weibull distribution
@@ -72,11 +73,11 @@ junk_bins,1,time based defective virus bins (for decay studies)
 junk_days,180,time width of junk_bins
 kappa,1.5,scale factor for CD8 damping
 kill_junk,1,flag to have CD8s kill cells harboring defective (junk) virus
-lifespan_decay,0,used
+lifespan_decay,0,used to decay lifespan of infected cells based on longevity of the strain
 lump_nonviable,1,flag to combine all non-viable virus into common "bucket"
 mu0,2e-5,probability of a mutation (SNP)
 pi,2e3,viral production per cell per day
-pi_mult,0.838549,combo beta*pi
+pi_mult,0.838549,combo beta*pi (used when fitting to keep pi*beta reasonable)
 res_days,180
 res_factor,1,used by reservoir models
 res_model,0,special reservoir models
@@ -87,7 +88,7 @@ theta,0.5,growth rate of CD8s (during antigenic response)
 thL1,0.05,death rate for latently infected cells (type 1)
 thL2,5.2e-4,death rate for latently infected cells (type 2)
 use_cd8s,1,flag to include CD8s in the model
-use_dBeta,1,flag to base infectivity on change from the strain's parent
+use_dBeta,1,flag to base infectivity on change from the strain's parent (also done if Bt_sd_factor is non-zero)
 use_weibull,1,flag for weibull distributions
 vol,1000,simulated volumn in uL
 xi1,0.08,latent cell type 1 activation rate
