@@ -3,7 +3,7 @@ ml Mesa
 ml libGLU
 ml GLib
 ml Pango
-ml GTK+/2.24.32-foss-2019b
+ml GTK3/3.24.31-GCCcore-11.2.0
 ml cairo
 export GTKGLEXT="/home/dswan/HSV_models/extra_libs"
 export PANGOX=$GTKGLEXT

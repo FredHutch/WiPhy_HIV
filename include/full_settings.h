@@ -1,6 +1,3 @@
-//NOTE: This read-only file is generated from the file ../include/full_settings.h.
-//Any editing should be done in that file.
-
 /* The state class holds parameters that have been set either on the command line or 
  * in the input file.  
  */
@@ -23,7 +20,11 @@
 
 #define MAX_HAMMING_DIST 60
 
+#ifdef MULTI_COMPARTMENTS
+#define MAX_COMPARTMENTS 3
+#else
 #define MAX_COMPARTMENTS 1
+#endif
 
 #define MAX_CD8_GROUPS 1000
 #define MAX_PATIENTS 100
@@ -216,8 +217,54 @@ class settings {
 	double aV;		//# growth rate due to viral activations
 	double aV_ic50;		//# growth rate due to viral activations
 
+#ifdef MULTI_COMPARTMENTS
+	double vol2;		//# compartment 2 volume e.g. 1 lymph node or EF area thereof? [uL]
+	double vol3;		//# compartment 3 volume e.g. 1 lymph node follicle[uL]
 
+	double Bt2;		//# compartment 2 volume adjusted infection rate
+	double Bt3;		//# compartment 3 volume adjusted infection rate
 
+	int a2_0;		//#start compartment 2 with a2_0 active cells
+	int a3_0;		//#start compartment 3 with a3_0 active cells
+
+	double gam2;		//# virus clearance rate (2nd compartment)
+	double gam3;		//# virus clearance rate (3rd compartment)
+
+	int S2_0;		//# initial susceptible cells (compartment 2)
+	int S3_0;		//# initial susceptible cells (compartment 3)
+
+	double aS2_0;		//# 1ul growth rate of compartment 2 susceptible cells [fract/day]
+	double aS3_0;		//# 1ul growth rate of compartment 3 susceptible cells [fract/day]
+
+	double aS2;		//# growth rate of compartment 2 ""
+	double aS3;		//# growth rate of compartment 3 ""
+
+	double ART_eff2;	//# drug efficiency (compartment 2)
+	double ART_eff3;	//# drug efficiency (compartment 3)
+
+	double Bt2_factor;	//# difference in infectivity of virus in 2nd compartment
+	double Bt3_factor;	//# difference in infectivity of virus in 2nd compartment
+
+	double dA2_factor;	//# difference in effect of CD8s in 2nd compartment
+	double dA3_factor;	//# difference in effect of CD8s in 3rd compartment
+
+	double fdc_bind;	//#fraction of free virus to bind each day
+	double fdc_release;	//#fraction of bound virus to free each day
+#endif
+
+#ifdef IMMUN_RAMP
+	double immun_delay_time; 	// time before ramp up of immunity
+	double immun_ramp_time; 	// time to ramp up immunity
+#endif
+
+#ifdef IMMUN_EXPAND
+	// for clonal expansion:
+	// only affect long-lived cells (L2) since others will expand 
+	// but then contract (die).  Chosen t-cells will go through number of doubling
+	// cycles (random int between 1 and expand_cycles).
+	double expand_freq; //# interval between clonal expansions
+	double expand_cycles; //# cycles in a given expansion
+#endif
 
 #ifdef ANTIBODIES
 	int use_Ab;		//# flag to use Ab PKPD to effect beta
@@ -351,6 +398,10 @@ class settings {
 
    	int scrollAxes;
    	int displayCompartment;
+#ifdef MULTI_COMPARTMENTS
+   	int twoCompartments;
+   	int threeCompartments;
+#endif
 
  	long int max_vl;
  	int max_cd8s;

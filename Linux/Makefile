@@ -19,8 +19,8 @@ GTKGLEXT_INC = -I$(GTKGLEXT)/include -I$(GTKGLEXT)/include/gtkglext-1.0 -I$(GTKG
 CC            = gcc
 CXX           = g++
 DEFINES       = 
-CFLAGS        = -m64 -pipe -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic -D_REENTRANT -Wall -W $(DEFINES)
-CXXFLAGS      = -m64 -pipe -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic -D_REENTRANT -Wall -W $(DEFINES)
+CFLAGS        = -m64 -pipe -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic -D_REENTRANT -Wall -W $(DEFINES)
+CXXFLAGS      = -m64 -pipe -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic -D_REENTRANT -Wall -W $(DEFINES)
 INCPATH       = -I. -I/usr/include -I../include -I.
 
 BASE_GTK_INCS = -I$(EBROOTGTKPLUS)/include/gtk-2.0 -I/usr/lib/x86_64-linux-gnu/gtk-2.0/include -I/usr/include/atk-1.0 -I/usr/include/cairo -I/usr/include/pango-1.0 `pkg-config --cflags glib-2.0` `pkg-config --cflags gdk-2.0` `pkg-config --cflags cairo` `pkg-config --cflags pango` `pkg-config --cflags atk` -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/freetype2 -I/usr/include/libpng12
@@ -58,6 +58,7 @@ MOVE          = mv -f
 CHK_DIR_EXISTS= test -d
 MKDIR         = mkdir -p
 
+FULL_DEFINES       = -DANTIBODIES -DMULTI_COMPARTMENTS
 ####### Output directory
 
 OBJECTS_DIR   = ./
@@ -75,6 +76,29 @@ CLEAN_OBJECTS       = clean_hiv_sim.o \
 		cell.o \
 		clean_strain.o \
 		clean_settings.o
+
+AB_HEADERS       = ../include/ab_settings.h
+
+AB_GEN_SRCS       = ../src/ab_gui.cpp \
+		../src/ab_hiv_sim_gui.cpp \
+		../src/ab_settings.cpp
+
+AB_GUIOBJS       = ab_gui.o \
+		ab_hiv_sim_gui.o \
+		cell.o \
+		ab_strain.o \
+		ab_settings.o \
+		plotpoints.o
+
+AB_OBJECTS       = ab_hiv_sim.o \
+		cell.o \
+		ab_strain.o \
+		ab_settings.o
+
+FULL_OBJECTS       = full_hiv_sim.o \
+		cell.o \
+		clean_strain.o \
+		full_settings.o
 
 ####### Implicit rules
 
@@ -97,9 +121,21 @@ CLEAN_OBJECTS       = clean_hiv_sim.o \
 
 ####### Build rules
 
-all: hiv_sim hiv_sim_gui
+all: hiv_sim hiv_sim_full
 
 ####### Compile
+
+../include/ab_settings.h: ../include/full_settings.h
+	rm -f "$@"
+	./ab_headers.sh
+	$(COPY) ../include/ab_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(COPY) ../include/ab_settings.h ab_dir/include/settings.h
+
+../src/ab_gui.cpp: ../src/full_gui.cpp ../include/ab_settings.h 
+	rm -f "$@"
+	./ab_gui.sh
+	$(COPY) ../src/ab_gui.cpp ab_dir/src
 
 clean_gui.o: ../src/clean_gui.cpp  ../include/settings.h 
 	$(CXX) -c -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o clean_gui.o ../src/clean_gui.cpp
@@ -109,6 +145,11 @@ plotpoints.o: ../src/plotpoints.cpp  ../include/plotpoints.h
 
 clean_settings.o: ../src/clean_settings.cpp  ../include/settings.h 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o clean_settings.o ../src/clean_settings.cpp
+
+ab_gui.o: ../src/ab_gui.cpp  ../include/ab_settings.h 
+	$(COPY) ../include/ab_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(CXX) -c -DANTIBODIES -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o ab_gui.o ../src/ab_gui.cpp
 
 plotpoints_gui.o: ../src/plotpoints.cpp  ../include/plotpoints.h
 	$(CXX) -c -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o plotpoints_gui.o ../src/plotpoints.cpp
@@ -122,11 +163,79 @@ clean_strain.o: ../src/clean_strain.cpp ../include/strain.h
 cell.o: ../src/cell.cpp ../include/cell.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o cell.o ../src/cell.cpp
 
+../src/ab_settings.cpp: ../src/full_settings.cpp
+	rm -f "$@"
+	./ab_settings.sh
+	$(COPY) ../src/ab_settings.cpp ab_dir/src
+
+ab_settings.o: ../src/ab_settings.cpp  ../include/ab_settings.h 
+	$(COPY) ../include/ab_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(CXX) -c -DANTIBODIES $(CXXFLAGS) $(INCPATH) -o ab_settings.o ../src/ab_settings.cpp
+
+../include/clean_settings.h: ../include/full_settings.h
+	rm -f "$@"
+	./clean_headers.sh
+	$(COPY) ../include/clean_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(COPY) ../include/clean_settings.h clean_dir/include/settings.h
+
+../src/clean_gui.cpp: ../src/full_gui.cpp ../include/clean_settings.h 
+	rm -f "$@"
+	./clean_gui.sh
+	$(COPY) ../src/clean_gui.cpp clean_dir/src
+
+../src/clean_settings.cpp: ../src/full_settings.cpp
+	rm -f "$@"
+	./clean_settings.sh
+	$(COPY) ../src/clean_settings.cpp clean_dir/src
+
+../src/clean_strain.cpp: ../src/full_strain.cpp
+	rm -f "$@"
+	./clean_strain.sh
+	$(COPY) ../src/clean_strain.cpp clean_dir/src
+	$(COPY) ../src/clean_strain.cpp ab_dir/src
+
+full_settings.o: ../src/full_settings.cpp  ../include/full_settings.h 
+	$(COPY) ../include/full_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(CXX) -c $(CXXFLAGS) $(FULL_DEFINES) $(INCPATH) -o full_settings.o ../src/full_settings.cpp
+
+full_hiv_sim.o: ../src/full_hiv_sim.cpp ../include/cell.h ../include/strain.h ../include/full_settings.h ../include/generic_list.h
+	$(COPY) ../include/full_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(CXX) -c $(CXXFLAGS) $(FULL_DEFINES) $(INCPATH) -o full_hiv_sim.o ../src/full_hiv_sim.cpp
+
+../src/clean_hiv_sim.cpp: ../src/full_hiv_sim.cpp
+	rm -f "$@"
+	./clean_sim.sh
+	$(COPY) ../src/clean_hiv_sim.cpp clean_dir/src
+
 clean_hiv_sim.o: ../src/clean_hiv_sim.cpp ../include/cell.h ../include/strain.h ../include/settings.h ../include/generic_list.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o clean_hiv_sim.o ../src/clean_hiv_sim.cpp
 
 clean_hiv_sim_gui.o: ../src/clean_hiv_sim.cpp ../include/cell.h ../include/strain.h ../include/settings.h ../include/generic_list.h ../include/plotpoints.h
 	$(CXX) -c -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o clean_hiv_sim_gui.o ../src/clean_hiv_sim.cpp
+
+ab_strain.o: ../src/clean_strain.cpp ../include/strain.h
+	$(COPY) ../include/ab_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(CXX) -c -DANTIBODIES $(CXXFLAGS) $(INCPATH) -o ab_strain.o ../src/clean_strain.cpp
+
+../src/ab_hiv_sim.cpp: ../src/full_hiv_sim.cpp
+	rm -f "$@"
+	./ab_sim.sh
+	$(COPY) ../src/ab_hiv_sim.cpp ab_dir/src
+
+ab_hiv_sim.o: ../src/ab_hiv_sim.cpp ../include/cell.h ../include/strain.h ../include/ab_settings.h ../include/generic_list.h
+	$(COPY) ../include/ab_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(CXX) -c -DANTIBODIES $(CXXFLAGS) $(INCPATH) -o ab_hiv_sim.o ../src/ab_hiv_sim.cpp
+
+ab_hiv_sim_gui.o: ../src/ab_hiv_sim.cpp ../include/cell.h ../include/strain.h ../include/ab_settings.h ../include/generic_list.h ../include/plotpoints.h
+	$(COPY) ../include/ab_settings.h ../include/settings.h
+	chmod -w ../include/settings.h
+	$(CXX) -c -DANTIBODIES -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o ab_hiv_sim_gui.o ../src/ab_hiv_sim.cpp
 
 hiv_sim:  $(CLEAN_OBJECTS) 
 	$(LINK) $(LFLAGS) -o hiv_sim $(CLEAN_OBJECTS) $(LIBS)
@@ -134,6 +243,15 @@ hiv_sim:  $(CLEAN_OBJECTS)
 hiv_sim_gui: $(CLEAN_GUIOBJS)
 	$(LINK) $(LFLAGS) -o hiv_sim_gui $(CLEAN_GUIOBJS) $(GUILIBS)
 
+hiv_sim_ab:  $(AB_OBJECTS) 
+	$(LINK) $(LFLAGS) -o hiv_sim_ab $(AB_OBJECTS) $(LIBS)
+
+hiv_sim_full:  $(FULL_OBJECTS) 
+	$(LINK) $(LFLAGS) -o hiv_sim_full $(FULL_OBJECTS) $(LIBS)
+
+hiv_sim_gui_ab: $(AB_GUIOBJS)
+	$(LINK) $(LFLAGS) -o hiv_sim_gui_ab $(AB_GUIOBJS) $(GUILIBS)
+
 clean:
-	-$(DEL_FILE) $(CLEAN_OBJECTS) $(CLEAN_GUIOBJS) hiv_sim hiv_sim_gui
+	-$(DEL_FILE) $(CLEAN_OBJECTS) $(CLEAN_GUIOBJS) $(FULL_OBJECTS) hiv_sim hiv_sim_gui fiv_sim_full
 	-$(DEL_FILE) *~ core *.core

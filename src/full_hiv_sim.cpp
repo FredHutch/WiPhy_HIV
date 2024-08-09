@@ -1,6 +1,3 @@
-//NOTE: This read-only file is generated from the file ../src/full_hiv_sim.cpp.
-//Any editing should be done in that file.
-
 #include<iostream>
 #include<fstream>
 #include<string>
@@ -513,6 +510,9 @@ void gather_all_stats(settings *params, double time,
 
     int num_compartments = 1;
 
+#ifdef MULTI_COMPARTMENTS
+    num_compartments = (params->threeCompartments == 1)?3:((params->twoCompartments == 1)?2:1);
+#endif
 
     for (int s=0; s < startQ; s++)
     {
@@ -939,6 +939,14 @@ void model(settings *params, double time, int compartment,
 	unsigned int x[],
 	generic_list<strain *> *ql,
 	generic_list<strain *> *top_strains
+#ifdef MULTI_COMPARTMENTS
+	,double egress_rate,
+	double egress_alt_rate,
+	double egress_rate_v,
+	double egress_alt_rate_v,
+	unsigned int egress[],
+	unsigned int egress2[]
+#endif
 	)
 {
             
@@ -968,6 +976,10 @@ void model(settings *params, double time, int compartment,
 
     int E=x[13]; //#pre-productive infected cells
 
+#ifdef MULTI_COMPARTMENTS
+    int Vvia_held=x[14]; //#FDC held infectious virus (follicle only)
+    int Vnon_held=x[15]; //#FDC held non-infectious virus (follicle only)
+#endif
 
     //Viral compartment
     //#poisson number of new virions per day from actively infected cells
@@ -1013,6 +1025,36 @@ void model(settings *params, double time, int compartment,
     int junk_L2_deaths=0;
     int junk_L2_infs=0;
 
+#ifdef MULTI_COMPARTMENTS
+    int from_compartment;
+    int to_compartment;
+
+    int alt_from_compartment;
+    int alt_to_compartment;
+
+    int Vnon_egress = 0;
+    int Vvia_egress = 0;
+    int Vnon_egress2 = 0;
+    int Vvia_egress2 = 0;
+
+    int Vnon_holds=0;
+    int Vvia_holds=0;
+    int Vnon_releases = 0;
+    int Vvia_releases = 0;
+
+    int A_egress=0;
+
+    int A_egress2=0;
+
+    int L1_egress=0;
+    int L1_egress2=0;
+
+    int L2_egress=0;
+    int L2_egress2=0;
+
+    int CD8_egress=0;
+    int CD8_egress2=0;
+#endif
 
     generic_list<strain *> *top_this_frame=NULL;
     double ART_eff=0;
@@ -1034,6 +1076,12 @@ void model(settings *params, double time, int compartment,
     if (compartment == 0)
     {
 	vol = params->vol;
+#ifdef MULTI_COMPARTMENTS
+	from_compartment=0;
+	to_compartment=1;
+	alt_from_compartment=0;
+	alt_to_compartment=1;
+#endif
 	if ((time-params->start_time) >= params->ART_start && 
 	    (params->ART_stop==0 || (time-params->start_time)<= params->ART_stop))
 	    ART_eff=params->ART_eff;
@@ -1043,6 +1091,40 @@ void model(settings *params, double time, int compartment,
 	dA_eff=1;
 	params->numTopStrains=0;
     }
+#ifdef MULTI_COMPARTMENTS
+    else if (compartment == 1)
+    {
+	vol = params->vol2;
+	from_compartment=1;
+	to_compartment=0;
+	alt_from_compartment=1;
+	alt_to_compartment=2;
+	if ((time-params->start_time) >= params->ART_start && 
+	    (params->ART_stop==0 || (time-params->start_time)<= params->ART_stop))
+	    ART_eff=params->ART_eff2;
+	else
+	    ART_eff=0;
+	Bt_eff=params->Bt2_factor;
+	dA_eff=params->dA2_factor;
+	params->numTopStrains2=0;
+    }
+    else 
+    {
+	vol = params->vol3;
+	from_compartment=2;
+	to_compartment=1;
+	alt_from_compartment=2;
+	alt_to_compartment=1;
+	if ((time-params->start_time) >= params->ART_start && 
+	    (params->ART_stop==0 || (time-params->start_time)<= params->ART_stop))
+	    ART_eff=params->ART_eff3;
+	else
+	    ART_eff=0;
+	Bt_eff=params->Bt3_factor;
+	dA_eff=params->dA3_factor;
+	params->numTopStrains3=0;
+    }
+#endif
     double mult;
     if (params->res_model == 1 && ART_eff == 0)
     {
@@ -1453,6 +1535,55 @@ void model(settings *params, double time, int compartment,
 			time);
 	    }   
 
+#ifdef MULTI_COMPARTMENTS
+	    if (params->twoCompartments==1 || params->threeCompartments==1)
+	    {
+		int ae_s = gsl_ran_poisson (params->ur, 
+			egress_rate*(num_act_cells-ad_s)*params->dt);
+
+		if (ae_s > num_act_cells - ad_s)
+		    ae_s = num_act_cells - ad_s;
+
+		// Active egress
+		for (int a=0; a < ae_s; a++)
+		{
+		    the_strain->dec_act_cells(from_compartment,time);
+		    the_strain->inc_act_cells(to_compartment,time);
+		    if (params->immun_model == 4 || params->immun_model == 5) {
+			dec_cd8_inf(params,from_compartment,cd8_index,time);
+			params->cd8_groups[to_compartment][cd8_index].inf_cells++;
+		    }
+		    A_egress++;
+
+		    if (A_egress > A)
+			fprintf(stderr, 
+			    "Warning egress exceed active cell count at t=%3.2lf\n",
+			    time);
+		}   
+		int ae2_s = gsl_ran_poisson (params->ur, 
+			egress_alt_rate*(num_act_cells-ad_s-ae_s)*params->dt);
+
+		if (ae2_s > num_act_cells - ad_s - ae_s)
+		    ae2_s = num_act_cells - ad_s - ae_s;
+
+		// Active egress
+		for (int a=0; a < ae2_s; a++)
+		{
+		    the_strain->dec_act_cells(alt_from_compartment,time);
+		    the_strain->inc_act_cells(alt_to_compartment,time);
+		    if (params->immun_model == 4 || params->immun_model == 5) {
+			dec_cd8_inf(params,alt_from_compartment,cd8_index,time);
+			params->cd8_groups[to_compartment][cd8_index].inf_cells++;
+		    }
+		    A_egress2++;
+
+		    if (A_egress2 > A - A_egress)
+			fprintf(stderr, 
+			    "Warning egress exceed active cell count at t=%3.2lf\n",
+			    time);
+		}   
+	    }   
+#endif
 
 	}
 	// Short-lived latently infected cell births, deaths and activations
@@ -1490,6 +1621,44 @@ void model(settings *params, double time, int compartment,
 	    }   
 	    num_l1_cells-=l1d_s;
 
+#ifdef MULTI_COMPARTMENTS
+	    int l1e_s = 0;
+
+	    if (params->twoCompartments==1 || params->threeCompartments==1)
+	    {
+		l1e_s = gsl_ran_poisson (params->ur, 
+			egress_rate*num_l1_cells*params->dt);
+
+		if (l1e_s > num_l1_cells)
+		    l1e_s = num_l1_cells;
+
+		// L1 egress
+		for (int l=0; l < l1e_s; l++)
+		{
+		    the_strain->dec_l1_cells(from_compartment);
+		    the_strain->inc_l1_cells(to_compartment);
+
+		    L1_egress++;
+		}   
+		num_l1_cells-=l1e_s;
+
+		int l1e2_s = gsl_ran_poisson (params->ur, 
+			egress_alt_rate*num_l1_cells*params->dt);
+
+		if (l1e2_s > num_l1_cells)
+		    l1e2_s = num_l1_cells;
+
+		// L1 egress2
+		for (int l=0; l < l1e2_s; l++)
+		{
+		    the_strain->dec_l1_cells(alt_from_compartment);
+		    the_strain->inc_l1_cells(alt_to_compartment);
+
+		    L1_egress2++;
+		}   
+		num_l1_cells-=l1e2_s;
+	    }   
+#endif
 
 	    double L1_activate_rate = params->xi1*num_l1_cells; //#latent to active
 	    int num_acts=gsl_ran_poisson(params->ur,L1_activate_rate*params->dt);
@@ -1562,6 +1731,43 @@ void model(settings *params, double time, int compartment,
 	    }   
 	    num_l2_cells-=l2d_s;
 
+#ifdef MULTI_COMPARTMENTS
+	    int l2e_s = 0;
+	    if (params->twoCompartments==1 || params->threeCompartments==1)
+	    {
+		l2e_s = gsl_ran_poisson (params->ur, 
+			egress_rate*num_l2_cells*params->dt);
+
+		if (l2e_s > num_l2_cells)
+		    l2e_s = num_l2_cells;
+
+		// L2 egress
+		for (int l=0; l < l2e_s; l++)
+		{
+		    the_strain->dec_l2_cells(from_compartment);
+		    the_strain->inc_l2_cells(to_compartment);
+
+		    L2_egress++;
+		}   
+		num_l2_cells-=l2e_s;
+
+		int l2e2_s = gsl_ran_poisson (params->ur, 
+			egress_alt_rate*num_l2_cells*params->dt);
+
+		if (l2e2_s > num_l2_cells)
+		    l2e2_s = num_l2_cells;
+
+		// L2 egress2
+		for (int l=0; l < l2e2_s; l++)
+		{
+		    the_strain->dec_l2_cells(alt_from_compartment);
+		    the_strain->inc_l2_cells(alt_to_compartment);
+
+		    L2_egress2++;
+		}   
+		num_l2_cells-=l2e2_s;
+	    }
+#endif
 	    double L2_activate_rate = params->xi2*num_l2_cells; //#latent to active
 	    int num_acts=gsl_ran_poisson(params->ur,L2_activate_rate*params->dt);
 	    if (num_acts > num_l2_cells)
@@ -1780,6 +1986,18 @@ void model(settings *params, double time, int compartment,
 		    CD8_deaths+=cd8_d;
 		}
 
+#ifdef MULTI_COMPARTMENTS
+		if (params->twoCompartments==1 || params->threeCompartments==1)
+		{
+		    unsigned long int cd8_e = gsl_ran_poisson (params->ur,egress_rate*(num_cd8s-cd8_d)*params->dt);
+		    if (cd8_e > (num_cd8s-cd8_d-1))
+			cd8_e = (num_cd8s-cd8_d-1);
+
+		    CD8_egress+=cd8_e;
+
+		    /* No CD8 egress to/from compartment 3 */
+		}
+#endif
 	    }
 	}
 
@@ -1875,6 +2093,14 @@ void model(settings *params, double time, int compartment,
 	if (num_virions > 0)
 	{
 	    int vd_s;
+#ifdef MULTI_COMPARTMENTS
+	    if (params->threeCompartments==1 && compartment==2)
+		vd_s = gsl_ran_poisson(params->ur,params->gam3*num_virions*params->dt);
+	    else if ((params->twoCompartments==1 || 
+		      params->threeCompartments==1) && compartment==1)
+		vd_s = gsl_ran_poisson(params->ur,params->gam2*num_virions*params->dt);
+	    else 
+#endif
 		vd_s = gsl_ran_poisson(params->ur,params->gam*num_virions*params->dt);
 
 	    if ((unsigned int)vd_s > num_virions)
@@ -1886,10 +2112,70 @@ void model(settings *params, double time, int compartment,
 
 	    Vvia_deaths +=vd_s;
 
+#ifdef MULTI_COMPARTMENTS
+
+	    if (params->twoCompartments==1 || params->threeCompartments==1)
+	    {
+		int ve_s = gsl_ran_poisson(params->ur,egress_rate_v*num_virions*params->dt);
+		if ((unsigned int)ve_s > num_virions)
+		    ve_s = num_virions;
+
+		if (ve_s > 0)
+		{
+		    the_strain->dec_via_virus(from_compartment,ve_s);
+		    the_strain->inc_via_virus(to_compartment,ve_s);
+
+		    Vvia_egress +=ve_s;
+		}
+		num_virions-=ve_s;
+		int ve2_s = gsl_ran_poisson(params->ur,egress_alt_rate_v*num_virions*params->dt);
+		if ((unsigned int)ve2_s > num_virions)
+		    ve2_s = num_virions;
+
+		if (ve2_s > 0)
+		{
+		    the_strain->dec_via_virus(alt_from_compartment,ve_s);
+		    the_strain->inc_via_virus(alt_to_compartment,ve_s);
+
+		    Vvia_egress2 +=ve2_s;
+		}
+
+		if (params->threeCompartments==1 && compartment==2)
+		{
+		    int vh_b = gsl_ran_poisson(params->ur,params->fdc_bind*num_virions*params->dt);
+
+		    the_strain->inc_held_viable(compartment,vh_b);
+		    the_strain->dec_via_virus(compartment,vh_b);
+
+		    num_virions -= vh_b;
+
+		    Vvia_holds +=vh_b;
+
+		    unsigned int num_held_virions = the_strain->get_held_viable(compartment);
+		    int vh_r = gsl_ran_poisson(params->ur,params->fdc_release*num_held_virions*params->dt);
+
+		    the_strain->dec_held_viable(compartment,vh_r);
+		    the_strain->inc_via_virus(compartment,vh_r);
+
+		    num_virions += vh_r;
+
+		    Vvia_releases +=vh_r;
+		}
+
+	    }
+#endif
 	}
 	if (num_junk_virions > 0)
 	{
 	    int vd_s;
+#ifdef MULTI_COMPARTMENTS
+	    if (params->threeCompartments==1 && compartment==2)
+		vd_s = gsl_ran_poisson(params->ur,params->gam3*num_junk_virions*params->dt);
+	    else if ((params->twoCompartments==1 || 
+		      params->threeCompartments==1) && compartment==1)
+		vd_s = gsl_ran_poisson(params->ur,params->gam2*num_junk_virions*params->dt);
+	    else 
+#endif
 		vd_s = gsl_ran_poisson(params->ur,params->gam*num_junk_virions*params->dt);
 
 	    if ((unsigned int)vd_s > num_junk_virions)
@@ -1901,6 +2187,58 @@ void model(settings *params, double time, int compartment,
 
 	    Vnon_deaths +=vd_s;
 
+#ifdef MULTI_COMPARTMENTS
+
+	    if (params->twoCompartments==1 || params->threeCompartments==1)
+	    {
+		int ve_s = gsl_ran_poisson(params->ur,egress_rate_v*num_junk_virions*params->dt);
+		if ((unsigned int)ve_s > num_junk_virions)
+		    ve_s = num_junk_virions;
+
+		if (ve_s > 0)
+		{
+		    the_strain->dec_junk_virus(from_compartment,ve_s);
+		    the_strain->inc_junk_virus(to_compartment,ve_s);
+
+		    Vnon_egress +=ve_s;
+		}
+		num_junk_virions-=ve_s;
+		int ve2_s = gsl_ran_poisson(params->ur,egress_alt_rate_v*num_junk_virions*params->dt);
+		if ((unsigned int)ve2_s > num_junk_virions)
+		    ve2_s = num_junk_virions;
+
+		if (ve2_s > 0)
+		{
+		    the_strain->dec_junk_virus(alt_from_compartment,ve_s);
+		    the_strain->inc_junk_virus(alt_to_compartment,ve_s);
+
+		    Vnon_egress2 +=ve2_s;
+		}
+
+		if (params->threeCompartments==1 && compartment==2)
+		{
+		    int vh_b = gsl_ran_poisson(params->ur,params->fdc_bind*num_junk_virions*params->dt);
+
+		    the_strain->inc_held_junk(compartment,vh_b);
+		    the_strain->dec_junk_virus(compartment,vh_b);
+
+		    num_junk_virions -= vh_b;
+
+		    Vnon_holds +=vh_b;
+
+		    unsigned int num_held_virions = the_strain->get_held_junk(compartment);
+		    int vh_r = gsl_ran_poisson(params->ur,params->fdc_release*num_held_virions*params->dt);
+
+		    the_strain->dec_held_junk(compartment,vh_r);
+		    the_strain->inc_junk_virus(compartment,vh_r);
+
+		    num_junk_virions += vh_r;
+
+		    Vnon_releases +=vh_r;
+		}
+
+	    }
+#endif
 	}
     }
     // if CD8s are managed globally only,  grow/cull single population here
@@ -1968,6 +2306,16 @@ void model(settings *params, double time, int compartment,
 	    }
 
 	}
+#ifdef MULTI_COMPARTMENTS
+	if (params->twoCompartments==1)
+	{
+	    unsigned long int cd8_e = gsl_ran_poisson (params->ur,egress_rate*(CD8s-cd8_d)*params->dt);
+	    if (cd8_e > (CD8s-cd8_d-1))
+		cd8_e = (CD8s-cd8_d-1);
+
+	    CD8_egress+=cd8_e;
+	}
+#endif
     }
 
     if (params->followTopStrains &&
@@ -2002,6 +2350,12 @@ void model(settings *params, double time, int compartment,
     }
     if (compartment == 0)
 	params->numTopStrains = top_strains->get_num_elems();
+#ifdef MULTI_COMPARTMENTS
+    else if (compartment == 1)
+	params->numTopStrains2 = top_strains->get_num_elems();
+    else if (compartment == 2)
+	params->numTopStrains3 = top_strains->get_num_elems();
+#endif
 
     if (params->followTopStrains)
 	delete(top_this_frame);
@@ -2011,7 +2365,16 @@ void model(settings *params, double time, int compartment,
     //double Sbirth_rate = params->aS * params->S0;
 
     double Sbirth_rate;
+#ifdef MULTI_COMPARTMENTS
+    if (compartment == 0)
+	Sbirth_rate = params->aS;
+    else if (compartment == 1)
+	Sbirth_rate = params->aS2;
+    else
+	Sbirth_rate = params->aS3;
+#else
     Sbirth_rate = params->aS;
+#endif
 
     int Sbirths = gsl_ran_poisson(params->ur,Sbirth_rate*params->dt);
 
@@ -2025,6 +2388,26 @@ void model(settings *params, double time, int compartment,
     if (Sdeaths > S)
 	Sdeaths = S;
 
+#ifdef MULTI_COMPARTMENTS
+    //#density dependent susceptible egress
+    int Segress = 0;
+    int Segress2 = 0;
+
+    if (params->twoCompartments==1 || params->threeCompartments==1)
+    {
+	double Segress_rate = egress_rate*(S-Sdeaths);
+	Segress = gsl_ran_poisson(params->ur,Segress_rate*params->dt);
+
+	if (Segress > S-Sdeaths)
+	    Segress = S-Sdeaths;
+
+	double Segress_rate2 = egress_alt_rate*(S-Sdeaths-Segress);
+	int Segress2 = gsl_ran_poisson(params->ur,Segress_rate2*params->dt);
+
+	if (Segress2 > (S-Sdeaths-Segress))
+	    Segress2 = (S-Sdeaths-Segress);
+    }
+#endif
 
     int A_check=0;
     int A_new=0;
@@ -2051,6 +2434,9 @@ void model(settings *params, double time, int compartment,
 	    L2_check+=num_l2_cells;
     }
     A_new = A_infs - A_deaths 
+#ifdef MULTI_COMPARTMENTS
+	-A_egress -A_egress2 
+#endif
 	+ L1_acts + L2_acts+A_ripens;
 
     if (A_check != A+ A_new)
@@ -2061,6 +2447,9 @@ void model(settings *params, double time, int compartment,
 	exit(1);
     }
     L1_new = L1_births + L1_infs - L1_deaths -E1_acts
+#ifdef MULTI_COMPARTMENTS
+		-L1_egress -L1_egress2
+#endif
 		- L1_acts;
 
     if (L1_check != L1+L1_new)
@@ -2071,6 +2460,9 @@ void model(settings *params, double time, int compartment,
 	exit(1);
     }
     L2_new =  L2_births + L2_infs - L2_deaths -E2_acts
+#ifdef MULTI_COMPARTMENTS
+		-L2_egress -L2_egress2  
+#endif
 		- L2_acts;
 
     if (L2_check != L2+ L2_new)
@@ -2090,11 +2482,17 @@ void model(settings *params, double time, int compartment,
 
     // Watch for wrap-around on viable virus
     if (x[4] > 100000 && Vvia + Vvia_births - Vvia_deaths
+#ifdef MULTI_COMPARTMENTS
+	- Vvia_egress - Vvia_egress2 
+#endif
 	< 1000)
     {
 	fprintf(stderr,
 	    "V via growth error (compartment %d) at t=%3.2lf (Vvia was %u, now=%u)\n",
 	    compartment,time,x[4],Vvia + Vvia_births - Vvia_deaths
+#ifdef MULTI_COMPARTMENTS
+		- Vvia_egress - Vvia_egress2
+#endif
 		);
 	exit(1);
     }
@@ -2102,11 +2500,17 @@ void model(settings *params, double time, int compartment,
 
     // Watch for wrap-around on non-viable virus
     if (x[5] > 100000 && Vnon + Vnon_births - Vnon_deaths
+#ifdef MULTI_COMPARTMENTS
+		- Vnon_egress - Vnon_egress2
+#endif
 		< 1000)
     {
 	fprintf(stderr,
 	    "V non-viable growth error (compartment %d) at t=%3.2lf (Vnon was %u, now=%u)\n",
 	    compartment,time,x[5],Vnon + Vnon_births - Vnon_deaths
+#ifdef MULTI_COMPARTMENTS
+	    - Vnon_egress - Vnon_egress2
+#endif
 		);
 	exit(1);
     }
@@ -2114,6 +2518,9 @@ void model(settings *params, double time, int compartment,
     // adjust all compartment counts
     // Note: A_infs, etc. contain junk infections as well...
     int S_new = Sbirths + Sexp - Sdeaths 
+#ifdef MULTI_COMPARTMENTS
+	-Segress -Segress2 
+#endif
 	- L1_infs - L2_infs - A_infs;
     x[0]= MAX(0,S + S_new);
 
@@ -2131,11 +2538,23 @@ void model(settings *params, double time, int compartment,
     if (x[3]!=0 && x3p == 0)
 	fprintf(stderr,"1st memory inf at t=%lf\n",time);
 
+#ifdef MULTI_COMPARTMENTS
+    int Vv_new = Vvia_births - Vvia_deaths
+	- Vvia_egress - Vvia_egress2 
+	+ Vvia_releases - Vvia_holds;
+#else
     int Vv_new = Vvia_births - Vvia_deaths;
+#endif
 
     x[4]= MAX(0,Vvia + Vv_new);
 
+#ifdef MULTI_COMPARTMENTS
+    int Vn_new = Vnon_births - Vnon_deaths
+	- Vnon_egress - Vnon_egress2 
+	+ Vnon_releases - Vnon_holds;
+#else
     int Vn_new = Vnon_births - Vnon_deaths;
+#endif
 
     x[5]= MAX(0,Vnon + Vn_new);
 
@@ -2147,7 +2566,11 @@ void model(settings *params, double time, int compartment,
 
     if (params->use_cd8s > 0)
     {
+#ifdef MULTI_COMPARTMENTS
+	int CD8_new = CD8_births - CD8_deaths - CD8_egress;
+#else
 	int CD8_new = CD8_births - CD8_deaths;
+#endif
 	if (params->CD8_limit > 0)
 	    x[9]= MIN(CD8s + CD8_new,(unsigned long int)params->CD8_limit);
 	else
@@ -2162,6 +2585,44 @@ void model(settings *params, double time, int compartment,
 
     x[13]= MAX(0,E + E_infs + E1_acts + E2_acts - A_ripens);
 
+#ifdef MULTI_COMPARTMENTS
+    x[14]= MAX(0,Vvia_held + Vvia_holds - Vvia_releases );
+
+    x[15]= MAX(0,Vnon_held + Vnon_holds - Vnon_releases );
+
+    if (params->twoCompartments==1 || params->threeCompartments==1)
+    {
+	egress[0]= MAX(0,Segress);
+
+	egress[1]= MAX(0,A_egress);
+
+	egress[2]= MAX(0,L1_egress);
+
+	egress[3]= MAX(0,L2_egress);
+
+	egress[4]= MAX(0,Vvia_egress);
+
+	egress[5]= MAX(0,Vnon_egress);
+
+	egress[9]= MAX(0,CD8_egress);
+    }
+    if (params->threeCompartments==1)
+    {
+	egress2[0]= MAX(0,Segress2);
+
+	egress2[1]= MAX(0,A_egress2);
+
+	egress2[2]= MAX(0,L1_egress2);
+
+	egress2[3]= MAX(0,L2_egress2);
+
+	egress2[4]= MAX(0,Vvia_egress2);
+
+	egress2[5]= MAX(0,Vnon_egress2);
+
+	egress2[9]= MAX(0,CD8_egress2);
+    }
+#endif
 }
 
 void read_input_file(char *inp_file, settings *params)
@@ -2302,9 +2763,61 @@ void read_input_file(char *inp_file, settings *params)
     CHECK_FOR_REAL("vol",vol);
     CHECK_FOR_REAL("dna_for_res",dna_for_res);
 
+#ifdef IMMUN_RAMP
+    CHECK_FOR_REAL("immun_delay_time",immun_delay_time);
+    CHECK_FOR_REAL("immun_ramp_time",immun_ramp_time);
+#endif
 
+#ifdef IMMUN_EXPAND
+    CHECK_FOR_REAL("expand_freq",expand_freq);
+    CHECK_FOR_REAL("expand_cycles",expand_cycles);
+#endif
 
+#ifdef ANTIBODIES
+    // Ab parameters for VRC01 trial simulation
+    CHECK_FOR_INT("use_Ab",use_Ab);
+    CHECK_FOR_REAL("dose_interval",dose_interval);
+    CHECK_FOR_REAL("dose_offset",dose_offset);
+    CHECK_FOR_REAL("y1_Ab",y1_Ab);
+    CHECK_FOR_REAL("k1_Ab",k1_Ab);
+    CHECK_FOR_REAL("y2_Ab",y2_Ab);
+    CHECK_FOR_REAL("k2_Ab",k2_Ab);
+    CHECK_FOR_REAL("ic50_Ab",ic50_Ab);
+    CHECK_FOR_REAL("ic50_factor",ic50_factor);
+    CHECK_FOR_REAL("hill_Ab",hill_Ab);
+#endif
 
+#ifdef MULTI_COMPARTMENTS
+    CHECK_FOR_REAL("fdc_bind",fdc_bind);
+    CHECK_FOR_REAL("fdc_release",fdc_release);
+
+    CHECK_FOR_REAL("ART_eff2",ART_eff2);
+    CHECK_FOR_REAL("ART_eff3",ART_eff3);
+
+    CHECK_FOR_INT("a2_0",a2_0);
+    CHECK_FOR_INT("a3_0",a3_0);
+    CHECK_FOR_REAL("aS2_0",aS2_0);
+    CHECK_FOR_REAL("aS3_0",aS3_0);
+
+    CHECK_FOR_REAL("dA2_factor",dA2_factor);
+    CHECK_FOR_REAL("dA3_factor",dA3_factor);
+
+    CHECK_FOR_REAL("vol2",vol2);
+    CHECK_FOR_REAL("vol3",vol3);
+
+    CHECK_FOR_REAL("gam2",gam2);
+    CHECK_FOR_REAL("gam3",gam3);
+
+    CHECK_FOR_REAL("Bt2_factor",Bt2_factor);
+    CHECK_FOR_REAL("Bt3_factor",Bt3_factor);
+
+    CHECK_FOR_INT("displayCompartment",displayCompartment);
+    CHECK_FOR_INT("twoCompartments",twoCompartments);
+    CHECK_FOR_INT("threeCompartments",threeCompartments);
+
+    CHECK_FOR_REAL("egress_rate",egress_rate );
+    CHECK_FOR_REAL("egress_rate_v",egress_rate_v );
+#endif
 
     CHECK_FOR_INT("disp_patient",disp_patient);
     CHECK_FOR_INT("vl_as_log",vl_as_log);
@@ -2475,6 +2988,10 @@ void usage(char *prog_name)
     fprintf(stderr,"\t\t2= strains and their cell counts vs time\n");
     fprintf(stderr,"\t\t4= strain lineage information (birth, parent, etc.)\n");
     fprintf(stderr,"\t\t8= top 10 strain ids and viral loads\n");
+#ifdef MULTI_COMPARTMENTS
+    fprintf(stderr,"\t\t16= seconadry compartment counts vs time\n");
+    fprintf(stderr,"\t\t32= tertiary compartment counts vs time\n");
+#endif
 }
 
 double ScoreFunction(settings *params)
@@ -2527,7 +3044,21 @@ double ScoreFunction(settings *params)
 
     unsigned int x[NUM_MEASURES];
     int num_compartments = 1;
+#ifdef MULTI_COMPARTMENTS
+    num_compartments = (params->threeCompartments == 1)?3:((params->twoCompartments == 1)?2:1);
+#endif
 
+#ifdef MULTI_COMPARTMENTS
+    unsigned int y[NUM_MEASURES];
+    unsigned int z[NUM_MEASURES];
+    unsigned int x_egress[NUM_MEASURES]; /* blood to lymph (EF)*/
+    unsigned int y_egress[NUM_MEASURES]; /* lymph (EF) to blood */
+    unsigned int z_egress[NUM_MEASURES]; /* lymph (F) to lymph (EF)*/
+
+    unsigned int x_egress2[NUM_MEASURES]; /*blood to lymph (F) ->NONE */
+    unsigned int y_egress2[NUM_MEASURES]; /*lymph (EF) to lymph (F) */
+    unsigned int z_egress2[NUM_MEASURES]; /*lymph (F) to blood ->NONE */
+#endif
 
     params->mu = params->mu0 * params->seq_length; // mutation rate for sequence
 
@@ -2539,6 +3070,13 @@ double ScoreFunction(settings *params)
     params->dA_ic50  = params->dA_ic50_0*params->vol;  //# volume scaled infected cell ic50
     params->cd8_ic50  = params->cd8_ic50_0*params->vol;  //# volume scaled cd8 carrying capacity
 
+#ifdef MULTI_COMPARTMENTS
+    params->aS2  = params->aS2_0*params->vol2;       //# constant growth rate of susceptible cells [cells/day]
+    params->aS3  = params->aS3_0*params->vol3;       //# constant growth rate of susceptible cells [cells/day]
+    params->Bt2 = params->Bt2_factor*params->Bt_mean/params->vol2; //# infection rate of T-cells (2nd compartment)
+    params->Bt3 = params->Bt3_factor*params->Bt_mean/params->vol3; //# infection rate of T-cells (2nd compartment)
+
+#endif
 
     //#calculated rates
     params->dL1 = params->aL1+params->thL1+params->xi1;           //# death rate
@@ -2638,6 +3176,78 @@ double ScoreFunction(settings *params)
 	}
 
 
+#ifdef MULTI_COMPARTMENTS
+	for (int i=0; i < NUM_MEASURES; i++)
+	{
+	    x_egress[i] = 0;
+	    x_egress2[i] = 0;
+	    y_egress[i] = 0;
+	    y_egress2[i] = 0;
+	    z_egress[i] = 0;
+	    z_egress2[i] = 0;
+	    y[i] = 0;
+	    z[i] = 0;
+	}
+
+	if (params->twoCompartments==1 || params->threeCompartments==1)
+	{
+	    params->S2_0=params->aS2/params->dS;	//S
+	    y[0]=params->S2_0;
+	    y[1]=params->a2_0;		//A - viable
+	    y[2]=0;			//L1 - viable
+	    y[3]=0;			//L2 - viable
+	    y[4]=0;			//Vt - viable
+	    y[5]=0;			//Vt - non-viable
+	    y[6]=0;			//It
+	    y[7]=0;			//Id
+	    y[8]=x[8];		//Strains (start with junk and founder, maybe non-viable)
+	    y[9]=0;			//Total CD8s
+	    y[10]=0;			//Total act cells with junk DNA
+	    y[11]=0;			//Total L1 cells with junk DNA
+	    y[12]=0;			//Total L2 cells with junk DNA
+	    y[13]=0;			//Eclipse, (pre-productive)
+	    y[14]=0;			//No FDC holding in lymph node (EF)
+	    y[15]=0;			//No FDC holding in lymph node (EF)
+
+	    for (int i = 0; i < params->a2_0; i++)
+	    {
+		int infected = founder->add_infected(0);
+		founder->inc_act_cells(1,0);
+		if (infected > params->max_strain_cells)
+		    params->max_strain_cells=infected;
+		params->cd8_groups[1][1].inf_cells++;
+	    }
+	}
+	if (params->threeCompartments==1)
+	{
+	    params->S3_0=params->aS3/params->dS;	//S
+	    z[0]=params->S3_0;
+	    z[1]=params->a3_0;		//A - viable
+	    z[2]=0;			//L1 - viable
+	    z[3]=0;			//L2 - viable
+	    z[4]=0;			//Vt - viable
+	    z[5]=0;			//Vt - non-viable
+	    z[6]=0;			//It
+	    z[7]=0;			//Id
+	    z[8]=x[8];		//Strains (start with junk and founder, maybe non-viable)
+	    z[9]=0;			//Total CD8s
+	    z[10]=0;			//Total L0 cells with junk DNA
+	    z[11]=0;			//Total L1 cells with junk DNA
+	    z[12]=0;			//Total L2 cells with junk DNA
+	    z[13]=0;			//Eclipse, (pre-productive)
+	    z[14]=0;			//No FDC holding initially in follicle
+	    z[15]=0;			//No FDC holding initially in follicle
+
+	    for (int i = 0; i < params->a3_0; i++)
+	    {
+		int infected = founder->add_infected(0);
+		founder->inc_act_cells(2,0);
+		if (infected > params->max_strain_cells)
+		    params->max_strain_cells=infected;
+		params->cd8_groups[2][1].inf_cells++;
+	    }
+	}
+#endif
 
 	time = 0;
 	diversity = 0;
@@ -2698,6 +3308,11 @@ double ScoreFunction(settings *params)
 
 	generic_list<strain *> *top_strains=new generic_list<strain *>();
 
+#ifdef MULTI_COMPARTMENTS
+	generic_list<strain *> *top_strains2=new generic_list<strain *>();
+
+	generic_list<strain *> *top_strains3=new generic_list<strain *>();
+#endif
 	if (params->verbose)
 	    fprintf(stderr,"starting run %d...\n",runnum+1);
 
@@ -2833,6 +3448,46 @@ double ScoreFunction(settings *params)
 		fprintf(params->dataF3,"\n");
 		fflush(params->dataF3);
 	    }
+#ifdef MULTI_COMPARTMENTS
+	    // state outputs
+	    if (params->dataF5 != NULL) 
+	    {
+		fprintf(params->dataF5,"time");
+		fprintf(params->dataF5,",ln susceptible");
+		fprintf(params->dataF5,",ln active cells");
+		fprintf(params->dataF5,",ln L1 cells");
+		fprintf(params->dataF5,",ln L2 cells");
+		fprintf(params->dataF5,",ln log V viable");
+		fprintf(params->dataF5,",ln log V non-viable");
+		fprintf(params->dataF5,",ln log Vt");
+		fprintf(params->dataF5,",ln log It");
+		fprintf(params->dataF5,",ln log Id");
+		fprintf(params->dataF5,",ln pre-prod viable cells");
+		fprintf(params->dataF5,",ln pre-prod non-viable cells");
+		fprintf(params->dataF5,"\n");
+		fflush(params->dataF5);
+	    }
+	    if (params->dataF6 != NULL) 
+	    {
+		fprintf(params->dataF6,"time");
+		fprintf(params->dataF6,",foll susceptible");
+		fprintf(params->dataF6,",foll active cells");
+		fprintf(params->dataF6,",foll L1 cells");
+		fprintf(params->dataF6,",foll L2 cells");
+		fprintf(params->dataF6,",foll log V viable");
+		fprintf(params->dataF6,",foll log V non-viable");
+		fprintf(params->dataF6,",foll log Vt");
+		fprintf(params->dataF6,",foll log It");
+		fprintf(params->dataF6,",foll log Id");
+		fprintf(params->dataF6,",foll pre-prod viable cells");
+		fprintf(params->dataF6,",foll pre-prod non-viable cells");
+		fprintf(params->dataF6,",foll log held V viable");
+		fprintf(params->dataF6,",foll log held V non-viable");
+		fprintf(params->dataF6,",foll log held Vt");
+		fprintf(params->dataF6,"\n");
+		fflush(params->dataF6);
+	    }
+#endif
 	    // followed strains time history
 	    if (params->followTopStrains && params->dataF7 != NULL) 
 	    {
@@ -2845,6 +3500,10 @@ double ScoreFunction(settings *params)
 		fflush(params->dataF7);
 	    }
 	}
+#ifdef MULTI_COMPARTMENTS
+	params->numTopStrains2=0;
+	params->numTopStrains3=0;
+#endif
 			    
 	//#loop over times
 	//bool lastFrame=false;
@@ -2871,7 +3530,15 @@ double ScoreFunction(settings *params)
 	next_div_samples = params->div_sample_interval;
 	div_sample_size = params->div_sample_size;
 
+#ifdef IMMUN_EXPAND
+	bool in_expansion = false;
+	double expansion_start=0;
+	double expansion_dur=0;
+#endif
 
+#ifdef ANTIBODIES
+	double since_dose=params->dose_offset;
+#endif
 
 	fprintf(stdout,"ART to be applied %lf to %lf\n",params->ART_start,params->ART_stop);
 
@@ -2890,7 +3557,37 @@ double ScoreFunction(settings *params)
 		set_pt_p = 0;
 		num_set_pts = 0;
 	    }
+#ifdef ANTIBODIES
+	    // Ab concentration is cyclical w/ two-phase decay
+	    if (params->use_Ab)
+	    {
+		double Ab;
+		if (since_dose > params->dose_interval)
+		    since_dose=0;
 
+		Ab=params->y1_Ab*exp(-params->k1_Ab*since_dose)+
+			params->y2_Ab*exp(-params->k2_Ab*since_dose);
+
+		double ic50_to_use = params->ic50_Ab * params->ic50_factor;
+		params->ART_eff=1/(1+pow((Ab/ic50_to_use),-params->hill_Ab));
+
+		since_dose+= params->dt;
+	    }
+#endif
+
+#ifdef IMMUN_EXPAND
+	    if (in_expansion && time > expansion_start + expansion_dur)
+	    {
+		in_expansion = false;
+		fprintf(stderr,"Expansion complete at t=%lf\n",time);
+	    }
+	    else if (time == 0 || gsl_ran_poisson(params->ur,params->expand_freq*params->dt) > 0)
+	    {
+		in_expansion = true;
+		expansion_start = time;
+		fprintf(stderr,"Expansion started at t=%lf\n", time);
+	    }
+#endif
 	    if (params->alt_inp_file != NULL)
 	    {
 		if(params->Alt_input > 0 && time>=params->Alt_input &&
@@ -3119,6 +3816,46 @@ double ScoreFunction(settings *params)
 		    fprintf(params->dataF3,"\n");
 		    fflush(params->dataF3);
 		}
+#ifdef MULTI_COMPARTMENTS
+		// lymph node compartment outputs
+		if (params->dataF5 != NULL) 
+		{
+		    fprintf(params->dataF5,"%3.2lf",time);
+		    fprintf(params->dataF5,",%u",y[0]);
+		    fprintf(params->dataF5,",%u",y[1]);
+		    fprintf(params->dataF5,",%u",y[2]);
+		    fprintf(params->dataF5,",%u",y[3]);
+		    fprintf(params->dataF5,",%3.2lf",(y[4] > 0)?log10(y[4]):0);
+		    fprintf(params->dataF5,",%3.2lf",(y[5] > 0)?log10(y[5]):0);
+		    fprintf(params->dataF5,",%3.2lf",(y[4]+y[5] > 0)?log10(y[4]+y[5]):0);
+		    fprintf(params->dataF5,",%u",y[6]);
+		    fprintf(params->dataF5,",%u",y[7]);
+		    fprintf(params->dataF5,",%u",y[13]);
+		    fprintf(params->dataF5,"\n");
+		    fflush(params->dataF5);
+		}
+
+		// lymph node follicular compartment outputs
+		if (params->dataF6 != NULL) 
+		{
+		    fprintf(params->dataF6,"%3.2lf",time);
+		    fprintf(params->dataF6,",%u",z[0]);
+		    fprintf(params->dataF6,",%u",z[1]);
+		    fprintf(params->dataF6,",%u",z[2]);
+		    fprintf(params->dataF6,",%u",z[3]);
+		    fprintf(params->dataF6,",%3.2lf",(z[4] > 0)?log10(z[4]):0);
+		    fprintf(params->dataF6,",%3.2lf",(z[5] > 0)?log10(z[5]):0);
+		    fprintf(params->dataF6,",%3.2lf",(z[4]+z[5] > 0)?log10(z[4]+z[5]):0);
+		    fprintf(params->dataF6,",%u",z[6]);
+		    fprintf(params->dataF6,",%u",z[7]);
+		    fprintf(params->dataF6,",%u",z[13]);
+		    fprintf(params->dataF6,",%3.2lf",(z[14] > 0)?log10(z[14]):0);
+		    fprintf(params->dataF6,",%3.2lf",(z[15] > 0)?log10(z[15]):0);
+		    fprintf(params->dataF6,",%3.2lf",(z[14]+z[15] > 0)?log10(z[14]+z[15]):0);
+		    fprintf(params->dataF6,"\n");
+		    fflush(params->dataF6);
+		}
+#endif
 		// followed strains time history
 		if (params->followTopStrains && params->dataF7 != NULL) 
 		{
@@ -3150,8 +3887,23 @@ double ScoreFunction(settings *params)
 		    params->numStrains = x[8]-1;
 		else
 		    params->numStrains = 0;
+#ifdef MULTI_COMPARTMENTS
+		if ((params->twoCompartments==0 &&
+			params->threeCompartments==0 )|| params->displayCompartment == 0)
+		    update_points(params,&snap_this_frame,snapnum,x[4],x[5],
+			top_strains,x[1]+x[2],x[3]+x[4]+x[5]+x[6],x[9],x[10],x[11],x[12]);
+		else if (params->threeCompartments==0 || 
+			params->displayCompartment == 1)
+
+		    update_points(params,&snap_this_frame,snapnum,y[4],y[5],
+			top_strains2,y[1]+y[2],y[3]+y[4]+y[5]+y[6],y[9],y[10],y[11],y[12]);
+		else
+		    update_points(params,&snap_this_frame,snapnum,z[4],z[5],
+			top_strains3,z[1]+z[2],z[3]+z[4]+z[5]+z[6],z[9],z[10],z[11],z[12]);
+#else
 		update_points(params,&snap_this_frame,snapnum,x[4],x[5],
 		    top_strains,x[1]+x[2],x[3]+x[4]+x[5]+x[6],x[9],x[10],x[11],x[12]);
+#endif
 	    }
 #endif
 	      
@@ -3159,7 +3911,12 @@ double ScoreFunction(settings *params)
 
 	    // stop if log Vt is out of range early on
 	    double logVt = ((x[4]+x[5]) > 0)?log10((double)(x[4]+x[5])/blood_factor):0;
+#ifdef ANTIBODIES
+	    if (params->use_Ab == 0 &&
+		time >= 2 && time < 5 && logVt < 0.5 )
+#else
 	    if (time >= 2 && time < 5 && logVt < 0.5)
+#endif
 	    {
 		char err_msg[200];
 		sprintf(err_msg,"logVt out of range (0.5 < %3.2lf), stopping run at t=%3.2lf...\n",
@@ -3178,10 +3935,55 @@ double ScoreFunction(settings *params)
 	    }
 	    // stop if no infected cells exist (latent or active)
 	    else if (
+#ifdef ANTIBODIES
+	    params->use_Ab != 0 || 
+#endif
 	    (x[1] > 0 || x[2] > 0 || x[3] > 0 || x[13] > 0)
+#ifdef MULTI_COMPARTMENTS
+		    || (params->twoCompartments==1 && 
+			(y[1] > 0 || y[2] > 0 || y[3] > 0 || y[13] > 0)) ||
+		    (params->threeCompartments==1 && 
+			(z[1] > 0 || z[2] > 0 || z[3] > 0 || z[13] > 0))
+#endif
 		)
 	    {
+#ifdef MULTI_COMPARTMENTS
+		model(params,time,0,x, Q_list,top_strains,params->egress_rate*params->vol2/params->vol,0,params->egress_rate_v*params->vol2/params->vol,0,x_egress,x_egress2);
+
+		if (params->twoCompartments==1 || params->threeCompartments==1)
+		{
+		    y[8]=x[8]; // propogate seq count immediately
+		    for (int i=0; i < NUM_MEASURES; i++)
+			if (i != 8)
+			    y[i] += x_egress[i];
+
+		    model(params,time,1,y, Q_list,top_strains2,params->egress_rate,params->egress_rate,params->egress_rate_v,params->egress_rate_v,y_egress,y_egress2);
+		    x[8]=y[8]; // propogate seq count immediately
+
+		    //Strains shared by both compartments others ingress/egress
+		    for (int i=0; i < NUM_MEASURES; i++)
+			if (i != 8)
+			    x[i] += y_egress[i];
+		}
+		if (params->threeCompartments==1)
+		{
+		    z[8]=y[8]; // propogate seq count immediately
+		    for (int i=0; i < NUM_MEASURES; i++)
+			if (i != 8)
+			    z[i] += y_egress2[i];
+
+		    model(params,time,2,z, Q_list,top_strains3,params->egress_rate*params->vol3/params->vol2,0,params->egress_rate_v*params->vol3/params->vol2,0,z_egress,z_egress2);
+
+		    x[8]=z[8]; // propogate seq count immediately
+
+		    //Strains shared by both compartments others ingress/egress
+		    for (int i=0; i < NUM_MEASURES; i++)
+			if (i != 8)
+			    y[i] += z_egress[i];
+		}
+#else
 		    model(params,time,0,x, Q_list,top_strains);
+#endif
 
 		params->Ro = params->aS*(Bt_avg/params->vol)*params->pi/params->gam/params->dS/params->dA; //# basic reproductive number
 
@@ -3315,6 +4117,23 @@ double ScoreFunction(settings *params)
 	    {
 		unsigned int all[NUM_MEASURES];
 		for (int i=0; i < NUM_MEASURES; i++)
+#ifdef MULTI_COMPARTMENTS
+		    if (params->threeCompartments==1)
+		    {
+			if (i != 8)
+			    all[i] = x[i]+y[i]+z[i];
+			else
+			    all[i] = x[i]; // strain count same for all
+		    }
+		    else if (params->twoCompartments == 1)
+		    {
+			if (i != 8)
+			    all[i] = x[i]+y[i];
+			else
+			    all[i] = x[i]; // strain count same for both
+		    }
+		    else
+#endif
 			all[i] = x[i]; // single compartment
 
 		// update stats to ensure consistency!
@@ -3328,6 +4147,24 @@ double ScoreFunction(settings *params)
 		    "\nAt t=%3.2lf:S=%u,A=%u,L1=%u,L2=%u,logVt=%3.2lf (%3.2lf/%3.2lf),Q=%u(%d),CD8=%u(ic50=%lf)\n",
 		    time,x[0],x[1],x[2],x[3],(x[4]+x[5] > 0)?log10(x[4]+x[5]):0,(x[4] > 0)?log10(x[4]):0,(x[5] > 0)?log10(x[5]):0,x[8],params->youngQ,x[9],params->cd8_ic50);
 
+#ifdef MULTI_COMPARTMENTS
+		if (params->twoCompartments || params->threeCompartments)
+		{
+		    fprintf(stdout,
+			"\nCompartment 2: t=%3.2lf,S=%u,A=%u,L1=%u,L2=%u,log Vt=%3.2lf (%3.2lf/%3.2lf),Q=%u,CD8=%u\n",
+			time,y[0],y[1],y[2],y[3],(y[4]+y[5] > 0)?log10(y[4]+y[5]):0,(y[4] > 0)?log10(y[4]):0,(y[5] > 0)?log10(y[5]):0,y[8],y[9]);
+		    if (params->threeCompartments)
+		    {
+			fprintf(stdout,
+			    "\nCompartment 3: t=%3.2lf,S=%u,A=%u,L1=%u,L2=%u,log Vt=%3.2lf (%3.2lf/%3.2lf),bound log Vt=%3.2lf (%3.2lf/%3.2lf)\n",
+			    time,z[0],z[1],z[2],z[3],
+			    (z[4]+z[5] > 0)?log10(z[4]+z[5]):0,
+			    (z[4] > 0)?log10(z[4]):0,(z[5] > 0)?log10(z[5]):0,
+			    (z[14]+z[15] > 0)?log10(z[14]+z[15]):0,
+			    (z[14] > 0)?log10(z[14]):0,(z[15] > 0)?log10(z[15]):0);
+		    }
+		}
+#endif
 
 		
 		fprintf(stdout,
@@ -3355,6 +4192,12 @@ double ScoreFunction(settings *params)
 		    }
 		}
 
+#ifdef MULTI_COMPARTMENTS
+		if (params->eclipse > 0)
+		    fprintf(stdout,
+			"\tPre-prod cells: %u/%u/%u\n", 
+			x[13],y[13],z[13]);
+#endif
 
 		int junk_index;
 		if (time < params->junk_days)
@@ -3372,6 +4215,14 @@ double ScoreFunction(settings *params)
 		    int prolif_cells = junk_strain->get_total_prolif();
 		    int dead_cells = junk_strain->get_total_deaths();
 
+#ifdef MULTI_COMPARTMENTS
+
+		    fprintf(stdout,
+			"\tJunk DNA cells: index=%d,cells=%u/%u/%u, strains=%d (p=%d,d=%d), dH=%3.2lf\n",
+			junkies,x[10]+y[10]+z[10],x[11]+y[11]+z[11],
+			    x[12]+y[12]+z[12],junk_strains,
+			prolif_cells,dead_cells,junk_dH);
+#else
 		    int junk_l0 = junk_strain->get_act_cells(0);
 		    int junk_l1 = junk_strain->get_l1_cells(0);
 		    int junk_l2 = junk_strain->get_l2_cells(0);
@@ -3389,6 +4240,7 @@ double ScoreFunction(settings *params)
 		    }
 		    else
 			fprintf(stdout,"\n");
+#endif
 		    int viable_l0 = 0;
 		    int viable_l1 = 0;
 		    int viable_l2 = 0;
@@ -3767,6 +4619,10 @@ int main (int argc, char *argv[])
 	char dat_file2[] = "strains.csv";
 	char dat_file3[] = "top_strains.csv";
 	char dat_file4[] = "strain_lineage.csv";
+#ifdef MULTI_COMPARTMENTS
+	char dat_file5[] = "ln_counts.csv";
+	char dat_file6[] = "foll_counts.csv";
+#endif
 	char dat_file7[] = "followed_strains.csv";
 
 	int verbose = 0;
@@ -3954,6 +4810,10 @@ int main (int argc, char *argv[])
 	if (verbose)
 	    params.verbose = 1;
 
+#ifdef MULTI_COMPARTMENTS
+	if (params.twoCompartments == 0)
+	    params.displayCompartment = 0;
+#endif
 
 	////////////////////////////////////////////////////////////////////////
 	///// read plot samples through a viral load file that has them //////////////
@@ -4107,6 +4967,16 @@ int main (int argc, char *argv[])
 	    cerr << "Could not open data file "<<dat_file4<<"\n";
 	    exit(1);
 	}
+#ifdef MULTI_COMPARTMENTS
+	if(((writeMask & (1<<4)) && ((params.dataF5 = fopen(dat_file5,"wt")) == NULL))){
+	    cerr << "Could not open data file "<<dat_file5<<"\n";
+	    exit(1);
+	}
+	if(((writeMask & (1<<5)) && ((params.dataF6 = fopen(dat_file6,"wt")) == NULL))){
+	    cerr << "Could not open data file "<<dat_file6<<"\n";
+	    exit(1);
+	}
+#endif
 	if(((writeMask & (1<<6)) && ((params.dataF7 = fopen(dat_file7,"wt")) == NULL))){
 	    cerr << "Could not open data file "<<dat_file7<<"\n";
 	    exit(1);
@@ -4122,5 +4992,9 @@ int main (int argc, char *argv[])
 	if(params.dataF2 != NULL) fclose(params.dataF2);
 	if(params.dataF3 != NULL) fclose(params.dataF3);
 	if(params.dataF4 != NULL) fclose(params.dataF4);
+#ifdef MULTI_COMPARTMENTS
+	if(params.dataF5 != NULL) fclose(params.dataF5);
+	if(params.dataF6 != NULL) fclose(params.dataF6);
+#endif
 	if(params.dataF7 != NULL) fclose(params.dataF7);
 }
