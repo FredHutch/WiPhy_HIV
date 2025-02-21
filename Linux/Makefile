@@ -23,22 +23,10 @@ CFLAGS        = -m64 -pipe -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector
 CXXFLAGS      = -m64 -pipe -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic -D_REENTRANT -Wall -W $(DEFINES)
 INCPATH       = -I. -I/usr/include -I../include -I.
 
-BASE_GTK_INCS = -I$(EBROOTGTKPLUS)/include/gtk-2.0 -I/usr/lib/x86_64-linux-gnu/gtk-2.0/include -I/usr/include/atk-1.0 -I/usr/include/cairo -I/usr/include/pango-1.0 `pkg-config --cflags glib-2.0` `pkg-config --cflags gdk-2.0` `pkg-config --cflags cairo` `pkg-config --cflags pango` `pkg-config --cflags atk` -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/freetype2 -I/usr/include/libpng12
-
-GUIINCPATH       = -I. $(GTKGLEXT_INC) $(BASE_GTK_INCS) $(GSL_INC) -I/usr/include -I../include -I/usr/X11R6/include -I.
-
 LINK          = g++
 LFLAGS        = -m64 -Wl,-O1
 
-GTKLIBS	      = $(GTKGLEXT_LIB) $(PANGOX_LIB) -lgtkglext-x11-1.0 -lgdkglext-x11-1.0 -lGLU -lGL  -L/usr/lib/x86_64-linux-gnu \
-		-lXt  -lSM -lICE -Wl,--export-dynamic -lX11 -lgtk-x11-2.0 \
-		-lgdk-x11-2.0 -latk-1.0 -lgio-2.0 -lpangoft2-1.0 -lgdk_pixbuf-2.0 \
-		-lpangocairo-1.0 -lcairo -lpango-1.0 -lpangox-1.0 -lfreetype -lfontconfig -lgobject-2.0 \
-		-lgmodule-2.0 -lglib-2.0
-
-GUILIBS          = $(GTKGLEXT_LIB) $(GTKLIBS)  -L/usr/X11R6/lib/x86_64-linux-gnu -lpng -lgsl -lgslcblas -lm -lGLU -lGL -lpthread
-
-LIBS          = -lgsl -lgslcblas -lm -lGLU -lGL -lpthread
+LIBS          = -lgsl -lgslcblas -lm -lpthread
 
 AR            = ar cqs
 RANLIB        = 
@@ -65,30 +53,12 @@ OBJECTS_DIR   = ./
 
 ####### Files
 
-CLEAN_GUIOBJS       = clean_gui.o \
-		clean_hiv_sim_gui.o \
-		cell.o \
-		clean_strain.o \
-		clean_settings_gui.o \
-		plotpoints.o
-
 CLEAN_OBJECTS       = clean_hiv_sim.o \
 		cell.o \
 		clean_strain.o \
 		clean_settings.o
 
 AB_HEADERS       = ../include/ab_settings.h
-
-AB_GEN_SRCS       = ../src/ab_gui.cpp \
-		../src/ab_hiv_sim_gui.cpp \
-		../src/ab_settings.cpp
-
-AB_GUIOBJS       = ab_gui.o \
-		ab_hiv_sim_gui.o \
-		cell.o \
-		ab_strain.o \
-		ab_settings.o \
-		plotpoints.o
 
 AB_OBJECTS       = ab_hiv_sim.o \
 		cell.o \
@@ -132,30 +102,8 @@ all: hiv_sim hiv_sim_full
 	chmod -w ../include/settings.h
 	$(COPY) ../include/ab_settings.h ab_dir/include/settings.h
 
-../src/ab_gui.cpp: ../src/full_gui.cpp ../include/ab_settings.h 
-	rm -f "$@"
-	./ab_gui.sh
-	$(COPY) ../src/ab_gui.cpp ab_dir/src
-
-clean_gui.o: ../src/clean_gui.cpp  ../include/settings.h 
-	$(CXX) -c -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o clean_gui.o ../src/clean_gui.cpp
-
-plotpoints.o: ../src/plotpoints.cpp  ../include/plotpoints.h
-	$(CXX) -c $(CXXFLAGS) $(GUIINCPATH) -o plotpoints.o ../src/plotpoints.cpp
-
 clean_settings.o: ../src/clean_settings.cpp  ../include/settings.h 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o clean_settings.o ../src/clean_settings.cpp
-
-ab_gui.o: ../src/ab_gui.cpp  ../include/ab_settings.h 
-	$(COPY) ../include/ab_settings.h ../include/settings.h
-	chmod -w ../include/settings.h
-	$(CXX) -c -DANTIBODIES -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o ab_gui.o ../src/ab_gui.cpp
-
-plotpoints_gui.o: ../src/plotpoints.cpp  ../include/plotpoints.h
-	$(CXX) -c -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o plotpoints_gui.o ../src/plotpoints.cpp
-
-clean_settings_gui.o: ../src/clean_settings.cpp  ../include/settings.h 
-	$(CXX) -c -DGUI_ENABLED $(CXXFLAGS) $(INCPATH) -o clean_settings_gui.o ../src/clean_settings.cpp
 
 clean_strain.o: ../src/clean_strain.cpp ../include/strain.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o clean_strain.o ../src/clean_strain.cpp
@@ -179,11 +127,6 @@ ab_settings.o: ../src/ab_settings.cpp  ../include/ab_settings.h
 	$(COPY) ../include/clean_settings.h ../include/settings.h
 	chmod -w ../include/settings.h
 	$(COPY) ../include/clean_settings.h clean_dir/include/settings.h
-
-../src/clean_gui.cpp: ../src/full_gui.cpp ../include/clean_settings.h 
-	rm -f "$@"
-	./clean_gui.sh
-	$(COPY) ../src/clean_gui.cpp clean_dir/src
 
 ../src/clean_settings.cpp: ../src/full_settings.cpp
 	rm -f "$@"
@@ -214,9 +157,6 @@ full_hiv_sim.o: ../src/full_hiv_sim.cpp ../include/cell.h ../include/strain.h ..
 clean_hiv_sim.o: ../src/clean_hiv_sim.cpp ../include/cell.h ../include/strain.h ../include/settings.h ../include/generic_list.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o clean_hiv_sim.o ../src/clean_hiv_sim.cpp
 
-clean_hiv_sim_gui.o: ../src/clean_hiv_sim.cpp ../include/cell.h ../include/strain.h ../include/settings.h ../include/generic_list.h ../include/plotpoints.h
-	$(CXX) -c -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o clean_hiv_sim_gui.o ../src/clean_hiv_sim.cpp
-
 ab_strain.o: ../src/clean_strain.cpp ../include/strain.h
 	$(COPY) ../include/ab_settings.h ../include/settings.h
 	chmod -w ../include/settings.h
@@ -232,16 +172,8 @@ ab_hiv_sim.o: ../src/ab_hiv_sim.cpp ../include/cell.h ../include/strain.h ../inc
 	chmod -w ../include/settings.h
 	$(CXX) -c -DANTIBODIES $(CXXFLAGS) $(INCPATH) -o ab_hiv_sim.o ../src/ab_hiv_sim.cpp
 
-ab_hiv_sim_gui.o: ../src/ab_hiv_sim.cpp ../include/cell.h ../include/strain.h ../include/ab_settings.h ../include/generic_list.h ../include/plotpoints.h
-	$(COPY) ../include/ab_settings.h ../include/settings.h
-	chmod -w ../include/settings.h
-	$(CXX) -c -DANTIBODIES -DGUI_ENABLED $(CXXFLAGS) $(GUIINCPATH) -o ab_hiv_sim_gui.o ../src/ab_hiv_sim.cpp
-
 hiv_sim:  $(CLEAN_OBJECTS) 
 	$(LINK) $(LFLAGS) -o hiv_sim $(CLEAN_OBJECTS) $(LIBS)
-
-hiv_sim_gui: $(CLEAN_GUIOBJS)
-	$(LINK) $(LFLAGS) -o hiv_sim_gui $(CLEAN_GUIOBJS) $(GUILIBS)
 
 hiv_sim_ab:  $(AB_OBJECTS) 
 	$(LINK) $(LFLAGS) -o hiv_sim_ab $(AB_OBJECTS) $(LIBS)
@@ -249,9 +181,6 @@ hiv_sim_ab:  $(AB_OBJECTS)
 hiv_sim_full:  $(FULL_OBJECTS) 
 	$(LINK) $(LFLAGS) -o hiv_sim_full $(FULL_OBJECTS) $(LIBS)
 
-hiv_sim_gui_ab: $(AB_GUIOBJS)
-	$(LINK) $(LFLAGS) -o hiv_sim_gui_ab $(AB_GUIOBJS) $(GUILIBS)
-
 clean:
-	-$(DEL_FILE) $(CLEAN_OBJECTS) $(CLEAN_GUIOBJS) $(FULL_OBJECTS) hiv_sim hiv_sim_gui fiv_sim_full
+	-$(DEL_FILE) $(CLEAN_OBJECTS) $(FULL_OBJECTS) hiv_sim fiv_sim_full
 	-$(DEL_FILE) *~ core *.core

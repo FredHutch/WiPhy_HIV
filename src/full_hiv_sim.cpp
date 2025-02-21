@@ -15,11 +15,6 @@ using namespace std;
 
 #include "colors.h"
 
-#ifdef GUI_ENABLED
-#include "plotpoints.h"
-#include "gui.h"
-#endif
-
 #include "cell.h"
 #include "generic_list.h"
 #include "strain.h"
@@ -2854,44 +2849,6 @@ void read_input_file(char *inp_file, settings *params)
     if (params->junk_bins > MAX_JUNK_BINS)
 	params->junk_bins = MAX_JUNK_BINS;
 
-#ifdef GUI_ENABLED
-    CHECK_FOR_INT("plotVt",plotVt);
-    CHECK_FOR_INT("plotAct",plotAct);
-    CHECK_FOR_INT("show_params",show_params);
-    CHECK_FOR_INT("plotCD8s",plotCD8s);
-
-    CHECK_FOR_INT("colorByHamming",colorByHamming);
-    CHECK_FOR_INT("maxHammingDist",maxHammingDist);
-    CHECK_FOR_INT("cd8GroupSize",cd8GroupSize);
-    CHECK_FOR_INT("colorBoxes",colorBoxes);
-    CHECK_FOR_INT("showNonVia",showNonVia);
-
-    CHECK_FOR_REAL("time_bias",time_bias);
-    CHECK_FOR_REAL("plot_span",plot_span);
-    CHECK_FOR_REAL("plot_bias",plot_bias);
-
-    CHECK_FOR_REAL("refresh",refresh);
-
-    CHECK_FOR_INT("SnapshotInterval",SnapshotInterval);
-    CHECK_FOR_INT("AutoSnapshot",AutoSnapshot);
-
-    CHECK_FOR_INT("max_log_v_value",max_log_v_value);
-    CHECK_FOR_INT("min_log_v_value",min_log_v_value);
-    CHECK_FOR_INT("max_log_a_value",max_log_a_value);
-    CHECK_FOR_INT("min_log_a_value",min_log_a_value);
-    CHECK_FOR_INT("max_log_cd8_value",max_log_cd8_value);
-    CHECK_FOR_INT("min_log_cd8_value",min_log_cd8_value);
-    CHECK_FOR_INT("max_cd8s",max_cd8s);
-
-    CHECK_FOR_INT("max_act",max_act);
-    CHECK_FOR_INT("x_ticks",x_ticks);
-    CHECK_FOR_INT("y1_ticks",y1_ticks);
-    CHECK_FOR_INT("y2_ticks",y2_ticks);
-    CHECK_FOR_INT("y3_ticks",y3_ticks);
-
-    if (params->max_strains > MAX_RAINBOW_COLORS)
-	params->max_strains = MAX_RAINBOW_COLORS;
-#endif
 }
 
 void read_fasta_file(char *fasta_file, settings *params)
@@ -3299,12 +3256,6 @@ double ScoreFunction(settings *params)
 	struct seq_info *div_samples=NULL;
 	struct seq_info *seq_samples=NULL;
 
-
-#ifdef GUI_ENABLED
-	int snapnum = 0;
-
-	bool snap_this_frame = false;
-#endif
 
 	generic_list<strain *> *top_strains=new generic_list<strain *>();
 
@@ -3880,32 +3831,6 @@ double ScoreFunction(settings *params)
 		}
 		next_output=next_output+params->sampleInterval;
 	    }
-#ifdef GUI_ENABLED
-	    if (time >= params->NextRefresh && params->points != NULL)
-	    {
-		if (x[8] > 0)
-		    params->numStrains = x[8]-1;
-		else
-		    params->numStrains = 0;
-#ifdef MULTI_COMPARTMENTS
-		if ((params->twoCompartments==0 &&
-			params->threeCompartments==0 )|| params->displayCompartment == 0)
-		    update_points(params,&snap_this_frame,snapnum,x[4],x[5],
-			top_strains,x[1]+x[2],x[3]+x[4]+x[5]+x[6],x[9],x[10],x[11],x[12]);
-		else if (params->threeCompartments==0 || 
-			params->displayCompartment == 1)
-
-		    update_points(params,&snap_this_frame,snapnum,y[4],y[5],
-			top_strains2,y[1]+y[2],y[3]+y[4]+y[5]+y[6],y[9],y[10],y[11],y[12]);
-		else
-		    update_points(params,&snap_this_frame,snapnum,z[4],z[5],
-			top_strains3,z[1]+z[2],z[3]+z[4]+z[5]+z[6],z[9],z[10],z[11],z[12]);
-#else
-		update_points(params,&snap_this_frame,snapnum,x[4],x[5],
-		    top_strains,x[1]+x[2],x[3]+x[4]+x[5]+x[6],x[9],x[10],x[11],x[12]);
-#endif
-	    }
-#endif
 	      
 	    //## evolve lists of cell objects based on events ##
 
@@ -3926,11 +3851,6 @@ double ScoreFunction(settings *params)
 		//discard this run
 		discarded++;
 		this_discarded = true;
-#ifdef GUI_ENABLED
-		params->stopFlag = 1;
-		ShowMessageBox("Error",err_msg);
-#endif
-
 		break;
 	    }
 	    // stop if no infected cells exist (latent or active)
@@ -4016,17 +3936,9 @@ double ScoreFunction(settings *params)
 		//discard this run
 		this_discarded = true;
 		discarded++;
-#ifdef GUI_ENABLED
-		params->stopFlag = 1;
-		ShowMessageBox("Error",err_msg);
-#endif
-
 		break;
 	    }
 
-    #ifdef GUI_ENABLED
-	    check_for_pause(params, &snap_this_frame);
-    #endif
 	    if (x[4]+x[5] >= peak_vl)
 	    {
 		if (time-params->start_time > 30)
@@ -4039,10 +3951,6 @@ double ScoreFunction(settings *params)
 		    //discard this run
 		    this_discarded = true;
 		    discarded++;
-    #ifdef GUI_ENABLED
-		    params->stopFlag = 1;
-		    ShowMessageBox("Error",err_msg);
-    #endif
 
 		    break;
 		}
@@ -4091,10 +3999,6 @@ double ScoreFunction(settings *params)
 			//discard this run
 			this_discarded = true;
 			discarded++;
-	#ifdef GUI_ENABLED
-			params->stopFlag = 1;
-			ShowMessageBox("Error",err_msg);
-	#endif
 
 			break;
 		    }
@@ -4432,10 +4336,6 @@ double ScoreFunction(settings *params)
 		    time);
 		fprintf(stdout,err_msg);
 		discarded++;
-	#ifdef GUI_ENABLED
-		params->stopFlag = 1;
-		ShowMessageBox("Error",err_msg);
-	#endif
 		this_discarded = true;
 	    }
 	    else
@@ -4982,11 +4882,7 @@ int main (int argc, char *argv[])
 	    exit(1);
 	}
 
-#ifdef GUI_ENABLED
-	gui_main(argc, argv, &params);
-#else
 	ScoreFunction(&params);
-#endif
 
 	if(params.dataF1 != NULL) fclose(params.dataF1);
 	if(params.dataF2 != NULL) fclose(params.dataF2);

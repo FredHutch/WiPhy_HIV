@@ -35,9 +35,6 @@
 #define SAMPLE_DNA 1
 
 #include "colors.h"
-#ifdef GUI_ENABLED
-#include "plotpoints.h"
-#endif
 
 struct seq_stats {
     int length;
@@ -418,10 +415,6 @@ class settings {
 
 	int stopFlag;
 	int pauseFlag;
-
-#ifdef GUI_ENABLED
-	plotPoints *points;
-#endif
 
 	unsigned long int *vt[MAX_STRAIN_COLORS];
 	int *at[MAX_STRAIN_COLORS];
