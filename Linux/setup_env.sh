@@ -1,10 +1,3 @@
+ml R/4.0.0-foss-2019b-fh1
 ml GSL
-ml Mesa
-ml libGLU
 ml GLib
-ml Pango
-ml GTK3/3.24.31-GCCcore-11.2.0
-ml cairo
-export GTKGLEXT="/home/dswan/HSV_models/extra_libs"
-export PANGOX=$GTKGLEXT
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GTKGLEXT
